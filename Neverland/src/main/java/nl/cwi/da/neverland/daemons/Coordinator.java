@@ -1,10 +1,12 @@
-package nl.cwi.da.neverland;
+package nl.cwi.da.neverland.daemons;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.Charset;
 import java.util.List;
+
+import nl.cwi.da.neverland.internal.Constants;
 
 import org.apache.log4j.Logger;
 import org.apache.mina.core.service.IoAcceptor;
@@ -97,6 +99,7 @@ public class Coordinator extends Thread implements Watcher {
 				List<String> nodes = zkc.getChildren(Constants.ZK_PREFIX, this);
 				log.info("Found " + nodes.size() + " advertised nodes in "
 						+ Constants.ZK_PREFIX);
+								
 				for (String n : nodes) {
 					log.info(n
 							+ "="

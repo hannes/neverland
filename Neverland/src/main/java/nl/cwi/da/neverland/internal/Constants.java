@@ -1,4 +1,4 @@
-package nl.cwi.da.neverland;
+package nl.cwi.da.neverland.internal;
 
 public class Constants {
 	public static final int ZK_PORT = 50001;

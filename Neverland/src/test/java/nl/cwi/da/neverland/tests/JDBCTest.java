@@ -1,5 +1,10 @@
 package nl.cwi.da.neverland.tests;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.mock;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -7,23 +12,13 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import nl.cwi.da.neverland.Coordinator;
-import nl.cwi.da.neverland.Worker;
-import nl.cwi.da.neverland.client.NeverlandDriver;
 import nl.cwi.da.neverland.client.NeverlandResultSet;
+import nl.cwi.da.neverland.daemons.Coordinator;
+import nl.cwi.da.neverland.daemons.Worker;
 
-import org.apache.log4j.Logger;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.mockito.Mockito.*;
-
 public class JDBCTest {
-
-	private static Logger log = Logger.getLogger(JDBCTest.class);
-
 	@Test
 	public void testConnection() throws InterruptedException,
 			ClassNotFoundException, SQLException {
@@ -50,6 +45,7 @@ public class JDBCTest {
 
 		Statement s = conn.createStatement();
 		ResultSet rs = s.executeQuery("SELECT * FROM lineitem LIMIT 100");
+		assertTrue(rs.next());
 
 	}
 
@@ -67,7 +63,6 @@ public class JDBCTest {
 		assertEquals(rs.getDouble(2), 42.2, 0.001);
 		assertEquals(rs.getDouble("l_extendedprice"), 42.2, 0.001);
 		assertEquals(rs.getString("l_returnflag"), "asdf");
-
 
 		// check indices that are out of bounds
 		try {

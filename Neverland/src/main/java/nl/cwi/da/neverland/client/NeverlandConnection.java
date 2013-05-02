@@ -24,7 +24,7 @@ import java.util.concurrent.Executor;
 
 import org.apache.log4j.Logger;
 
-import nl.cwi.da.neverland.Constants;
+import nl.cwi.da.neverland.internal.Constants;
 
 public class NeverlandConnection implements Connection {
 
@@ -56,9 +56,7 @@ public class NeverlandConnection implements Connection {
 			} while (in.ready());
 		} catch (Exception e) {
 			log.warn("Communication error", e);
-		}
-		log.info(response);
-		
+		}		
 		return response;
 	}
 

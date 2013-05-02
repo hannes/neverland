@@ -1,6 +1,9 @@
-package nl.cwi.da.neverland;
+package nl.cwi.da.neverland.daemons;
 
 import java.io.IOException;
+
+import nl.cwi.da.neverland.internal.Constants;
+import nl.cwi.da.neverland.internal.Constants.WorkerState;
 
 import org.apache.log4j.Logger;
 import org.apache.zookeeper.CreateMode;
