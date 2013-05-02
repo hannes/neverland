@@ -2,18 +2,30 @@ package nl.cwi.da.neverland.internal;
 
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public abstract class Scheduler {
-	public abstract Map<NeverlandNode, List<Subquery>> schedule(
-			List<NeverlandNode> nodes, List<Subquery> subqueries)
-			throws NeverlandException;
 
-	public class StupidScheduler extends Scheduler {
+	public static class SubquerySchedule extends
+			HashMap<NeverlandNode, List<Subquery>> {
+		private static final long serialVersionUID = 1L;
+		private Query q;
+
+		public SubquerySchedule(Query q) {
+			this.q = q;
+		}
+
+		public Query getQuery() {
+			return q;
+		}
+	}
+
+	public abstract SubquerySchedule schedule(List<NeverlandNode> nodes,
+			List<Subquery> subqueries) throws NeverlandException;
+
+	public static class StupidScheduler extends Scheduler {
 		@Override
-		public Map<NeverlandNode, List<Subquery>> schedule(
-				List<NeverlandNode> nodes, List<Subquery> subqueries)
-				throws NeverlandException {
+		public SubquerySchedule schedule(List<NeverlandNode> nodes,
+				List<Subquery> subqueries) throws NeverlandException {
 
 			if (nodes.size() < 1) {
 				throw new NeverlandException(
@@ -26,9 +38,10 @@ public abstract class Scheduler {
 			}
 
 			NeverlandNode n1 = nodes.get(0);
-			Map<NeverlandNode, List<Subquery>> retMap = new HashMap<NeverlandNode, List<Subquery>>();
-			retMap.put(n1, subqueries);
-			return retMap;
+			SubquerySchedule schedule = new SubquerySchedule(subqueries.get(0)
+					.getParent());
+			schedule.put(n1, subqueries);
+			return schedule;
 		}
 	}
 }

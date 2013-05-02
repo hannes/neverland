@@ -9,7 +9,7 @@ public abstract class Rewriter {
 	public static class StupidRewriter extends Rewriter {
 		@Override
 		public List<Subquery> rewrite(Query q) {
-			return Arrays.asList(new Subquery(q));
+			return Arrays.asList(new Subquery(q, q.getSql()));
 		}
 	}
 }

@@ -4,9 +4,18 @@ import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.Charset;
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import nl.cwi.da.neverland.internal.Constants;
+import nl.cwi.da.neverland.internal.Executor;
+import nl.cwi.da.neverland.internal.NeverlandNode;
+import nl.cwi.da.neverland.internal.Query;
+import nl.cwi.da.neverland.internal.Rewriter;
+import nl.cwi.da.neverland.internal.Scheduler;
+import nl.cwi.da.neverland.internal.Subquery;
 
 import org.apache.log4j.Logger;
 import org.apache.mina.core.service.IoAcceptor;
@@ -32,7 +41,12 @@ public class Coordinator extends Thread implements Watcher {
 	private String zookeeper;
 	private int jdbcPort;
 
+	private Executor executor;
+	private Rewriter rewriter;
+	private Scheduler scheduler;
+
 	public Coordinator(String zooKeeper, int jdbcPort) {
+
 		this.zookeeper = zooKeeper;
 		this.jdbcPort = jdbcPort;
 
@@ -41,9 +55,16 @@ public class Coordinator extends Thread implements Watcher {
 		} catch (ClassNotFoundException e) {
 			log.fatal("JDBC driver not found on classpath", e);
 		}
+
+		this.rewriter = new Rewriter.StupidRewriter();
+		this.scheduler = new Scheduler.StupidScheduler();
+		this.executor = new Executor.StupidExecutor();
+
 	}
 
 	private Constants.CoordinatorState coordinatorState = Constants.CoordinatorState.initializing;
+
+	private List<NeverlandNode> nodes = new ArrayList<NeverlandNode>();
 
 	@Override
 	public void run() {
@@ -84,7 +105,7 @@ public class Coordinator extends Thread implements Watcher {
 				new ProtocolCodecFilter(new TextLineCodecFactory(Charset
 						.forName("UTF-8"))));
 
-		acceptor.setHandler(new JdbcSocketHandler());
+		acceptor.setHandler(new JdbcSocketHandler(this));
 		acceptor.getSessionConfig().setReadBufferSize(2048);
 		acceptor.getSessionConfig().setIdleTime(IdleStatus.BOTH_IDLE, 10);
 		try {
@@ -95,17 +116,19 @@ public class Coordinator extends Thread implements Watcher {
 
 		while (coordinatorState == Constants.CoordinatorState.normal) {
 			try {
-
+				List<NeverlandNode> nnodes = new ArrayList<NeverlandNode>();
 				List<String> nodes = zkc.getChildren(Constants.ZK_PREFIX, this);
 				log.info("Found " + nodes.size() + " advertised nodes in "
 						+ Constants.ZK_PREFIX);
-								
+
 				for (String n : nodes) {
-					log.info(n
-							+ "="
-							+ new String(zkc.getData(Constants.ZK_PREFIX + "/"
-									+ n, false, null)));
+					String jdbc = new String(zkc.getData(Constants.ZK_PREFIX
+							+ "/" + n, false, null));
+					NeverlandNode nn = new NeverlandNode(jdbc, n);
+					nnodes.add(nn);
 				}
+				this.nodes = nnodes;
+
 			} catch (Exception e) {
 				log.warn("Zookeeper not ready... retrying in "
 						+ Constants.POLL_DELAY_MS + " ms", e);
@@ -123,6 +146,7 @@ public class Coordinator extends Thread implements Watcher {
 	@Override
 	public void process(WatchedEvent event) {
 		// TODO: do we need this at all?
+		// maybe if we want to react if a node goes down
 	}
 
 	public static void main(String[] args) {
@@ -155,6 +179,13 @@ public class Coordinator extends Thread implements Watcher {
 	}
 
 	private static class JdbcSocketHandler extends IoHandlerAdapter {
+
+		private Coordinator coord;
+
+		public JdbcSocketHandler(Coordinator c) {
+			this.coord = c;
+		}
+
 		@Override
 		public void messageReceived(IoSession session, Object message)
 				throws Exception {
@@ -172,16 +203,23 @@ public class Coordinator extends Thread implements Watcher {
 			if (str.toUpperCase().startsWith("EXEC")) {
 				String sql = str.substring(5);
 				log.info("QQ: " + sql);
-				// some dummy data
-				session.write("l_orderkey\tl_extendedprice\tl_returnflag\n"
-						+ "INTEGER\tDECIMAL\tVARCHAR(100)\n"
-						+ "42\t42.2\t\"asdf\"\n");
+				Query q = new Query(sql);
+				List<Subquery> subqueries = coord.getRewriter().rewrite(q);
+				Scheduler.SubquerySchedule schedule = coord.getScheduler()
+						.schedule(coord.getCurrentNodes(), subqueries);
+				coord.getExecutor().executeSchedule(schedule, session);
 			}
 		}
 	}
 
 	protected void handle(String line) {
 		log.info(line);
+	}
+
+	// avoid race conditions by not allowing outsiders write access to the node
+	// list
+	public List<NeverlandNode> getCurrentNodes() {
+		return Collections.unmodifiableList(nodes);
 	}
 
 	public static File createTempDirectory() throws IOException {
@@ -200,5 +238,22 @@ public class Coordinator extends Thread implements Watcher {
 		}
 
 		return (temp);
+	}
+
+	public Rewriter getRewriter() {
+		return rewriter;
+	}
+
+	public Scheduler getScheduler() {
+		return scheduler;
+	}
+
+	public Executor getExecutor() {
+		return executor;
+	}
+
+	public static void serializeResultSet(ResultSet aggrSet, IoSession session) {
+		// TODO Auto-generated method stub
+
 	}
 }
