@@ -253,7 +253,8 @@ public class Coordinator extends Thread implements Watcher {
 	}
 
 	public static void serializeResultSet(ResultSet aggrSet, IoSession session) {
-		// TODO Auto-generated method stub
+		
+		session.close(false);
 
 	}
 }

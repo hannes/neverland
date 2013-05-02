@@ -45,7 +45,11 @@ public abstract class Executor {
 					} catch (PropertyVetoException e) {
 						log.warn("Unable to load JDBC driver", e);
 					}
+					
 					cpds.setJdbcUrl(nn.getJdbc());
+					log.info(nn.getJdbc());
+					cpds.setUser("monetdb"); // TODO: add this to Zookeeper config
+					cpds.setPassword("monetdb");
 
 					// the settings below are optional -- c3p0 can work with
 					// defaults
@@ -69,7 +73,6 @@ public abstract class Executor {
 						log.warn(e);
 					}
 				}
-
 			}
 
 			if (resultSets.size() != subqueries) {
@@ -78,7 +81,6 @@ public abstract class Executor {
 			}
 			ResultCombiner rc = new ResultCombiner.ConcatResultCombiner();
 			ResultSet aggrSet = rc.combine(schedule.getQuery(), resultSets);
-
 			Coordinator.serializeResultSet(aggrSet, session);
 			session.close(false);
 		}

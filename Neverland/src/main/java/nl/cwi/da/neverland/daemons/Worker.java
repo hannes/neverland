@@ -74,6 +74,6 @@ public class Worker extends Thread implements Watcher {
 
 	public static void main(String[] args) {
 		new Worker("localhost:" + Constants.ZK_PORT,
-				"jdbc:log4jdbc:monetdb://localhost:50000/tpc-sf1").start();
+				"jdbc:monetdb://localhost:50000/tpc-sf1").start();
 	}
 }
