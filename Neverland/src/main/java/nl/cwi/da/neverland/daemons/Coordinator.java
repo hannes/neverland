@@ -5,9 +5,13 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.Charset;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import nl.cwi.da.neverland.internal.Constants;
 import nl.cwi.da.neverland.internal.Executor;
@@ -253,8 +257,53 @@ public class Coordinator extends Thread implements Watcher {
 	}
 
 	public static void serializeResultSet(ResultSet aggrSet, IoSession session) {
-		
-		session.close(false);
+		String result = "";
+		Map<Integer, Boolean> needsQuotes = new HashMap<Integer, Boolean>();
+		try {
+			ResultSetMetaData rsm = aggrSet.getMetaData();
+			for (int i = 1; i <= rsm.getColumnCount(); i++) {
+				result += rsm.getColumnName(i);
+				if (i < rsm.getColumnCount() - 1) {
+					result += "\t";
+				}
+			}
+			result += "\n";
+			for (int i = 1; i <= rsm.getColumnCount(); i++) {
+				String type = rsm.getColumnTypeName(i).toUpperCase();
+				result += type;
 
+				if (type.startsWith("VARCHAR") || type.equals("DATE")
+						|| type.equals("TIME")) {
+					needsQuotes.put(i, true);
+				} else {
+					needsQuotes.put(i, false);
+				}
+				if (i < rsm.getColumnCount() - 1) {
+					result += "\t";
+				}
+			}
+			result += "\n";
+
+			while (aggrSet.next()) {
+				for (int i = 1; i <= rsm.getColumnCount(); i++) {
+					if (needsQuotes.get(i)) {
+						result += "\"";
+					}
+					result += aggrSet.getObject(i).toString();
+					if (needsQuotes.get(i)) {
+						result += "\"";
+					}
+					if (i < rsm.getColumnCount() - 1) {
+						result += "\t";
+					}
+				}
+				result += "\n";
+			}
+			session.write(result);
+			session.close(false);
+
+		} catch (SQLException e) {
+			log.warn(e);
+		}
 	}
 }

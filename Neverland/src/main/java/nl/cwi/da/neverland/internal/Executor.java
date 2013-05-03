@@ -45,10 +45,11 @@ public abstract class Executor {
 					} catch (PropertyVetoException e) {
 						log.warn("Unable to load JDBC driver", e);
 					}
-					
+
 					cpds.setJdbcUrl(nn.getJdbc());
 					log.info(nn.getJdbc());
-					cpds.setUser("monetdb"); // TODO: add this to Zookeeper config
+					cpds.setUser("monetdb"); // TODO: add this to Zookeeper
+												// config
 					cpds.setPassword("monetdb");
 
 					// the settings below are optional -- c3p0 can work with
@@ -66,6 +67,8 @@ public abstract class Executor {
 				for (Subquery sq : sentry.getValue()) {
 					subqueries++;
 					try {
+						log.info("Running" + sq.getSql() + " on "
+								+ cpds.getJdbcUrl());
 						ResultSet rs = cpds.getConnection().createStatement()
 								.executeQuery(sq.getSql());
 						resultSets.add(rs);
