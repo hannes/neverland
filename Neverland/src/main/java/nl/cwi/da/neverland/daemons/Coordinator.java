@@ -20,6 +20,7 @@ import nl.cwi.da.neverland.internal.Query;
 import nl.cwi.da.neverland.internal.Rewriter;
 import nl.cwi.da.neverland.internal.Scheduler;
 import nl.cwi.da.neverland.internal.Subquery;
+import nl.cwi.da.neverland.internal.Rewriter.NotSoStupidRewriter;
 
 import org.apache.log4j.Logger;
 import org.apache.mina.core.service.IoAcceptor;
@@ -60,7 +61,9 @@ public class Coordinator extends Thread implements Watcher {
 			log.fatal("JDBC driver not found on classpath", e);
 		}
 
-		this.rewriter = new Rewriter.StupidRewriter();
+		// this.rewriter = new Rewriter.StupidRewriter();
+		this.rewriter = new NotSoStupidRewriter("lineitem", "l_orderkey", 0,
+				60000, 6000);
 		this.scheduler = new Scheduler.StupidScheduler();
 		this.executor = new Executor.StupidExecutor();
 
@@ -257,6 +260,7 @@ public class Coordinator extends Thread implements Watcher {
 	}
 
 	public static void serializeResultSet(ResultSet aggrSet, IoSession session) {
+		// TODO: find a way to stream this
 		String result = "";
 		Map<Integer, Boolean> needsQuotes = new HashMap<Integer, Boolean>();
 		try {
@@ -299,6 +303,7 @@ public class Coordinator extends Thread implements Watcher {
 				}
 				result += "\n";
 			}
+
 			session.write(result);
 			session.close(false);
 

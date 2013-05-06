@@ -11,4 +11,9 @@ public class Subquery extends Query {
 	public Query getParent() {
 		return parent;
 	}
+
+	@Override
+	public String toString() {
+		return sqlQuery;
+	}
 }

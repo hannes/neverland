@@ -67,7 +67,7 @@ public abstract class Executor {
 				for (Subquery sq : sentry.getValue()) {
 					subqueries++;
 					try {
-						log.info("Running" + sq.getSql() + " on "
+						log.info("Running " + sq.getSql() + " on "
 								+ cpds.getJdbcUrl());
 						ResultSet rs = cpds.getConnection().createStatement()
 								.executeQuery(sq.getSql());
@@ -80,7 +80,7 @@ public abstract class Executor {
 
 			if (resultSets.size() != subqueries) {
 				throw new NeverlandException(
-						"Not enough result sets found to combine, a something must have gone wrong.");
+						"Not enough result sets found to combine, something must have gone wrong.");
 			}
 			ResultCombiner rc = new ResultCombiner.ConcatResultCombiner();
 			ResultSet aggrSet = rc.combine(schedule.getQuery(), resultSets);
