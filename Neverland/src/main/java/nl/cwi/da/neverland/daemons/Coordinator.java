@@ -62,8 +62,9 @@ public class Coordinator extends Thread implements Watcher {
 		}
 
 		// this.rewriter = new Rewriter.StupidRewriter();
-		this.rewriter = new NotSoStupidRewriter("lineitem", "l_orderkey", 0,
-				60000, 6000);
+		// TODO: make this configurable or even auto-discover
+		this.rewriter = new NotSoStupidRewriter("lineorder", "lo_orderkey", 0,
+				60000, 99);
 		this.scheduler = new Scheduler.StupidScheduler();
 		this.executor = new Executor.StupidExecutor();
 
@@ -131,7 +132,8 @@ public class Coordinator extends Thread implements Watcher {
 				for (String n : nodes) {
 					String jdbc = new String(zkc.getData(Constants.ZK_PREFIX
 							+ "/" + n, false, null));
-					NeverlandNode nn = new NeverlandNode(jdbc, n);
+					// TODO: get user/pass from zookeeper?
+					NeverlandNode nn = new NeverlandNode(jdbc,"monetdb","monetdb", n);
 					nnodes.add(nn);
 				}
 				this.nodes = nnodes;

@@ -7,51 +7,21 @@ import java.util.Collection;
 import java.util.List;
 
 import net.sf.jsqlparser.JSQLParserException;
-import net.sf.jsqlparser.expression.AllComparisonExpression;
-import net.sf.jsqlparser.expression.AnyComparisonExpression;
 import net.sf.jsqlparser.expression.BinaryExpression;
-import net.sf.jsqlparser.expression.CaseExpression;
-import net.sf.jsqlparser.expression.DateValue;
-import net.sf.jsqlparser.expression.DoubleValue;
 import net.sf.jsqlparser.expression.Expression;
-import net.sf.jsqlparser.expression.ExpressionVisitor;
-import net.sf.jsqlparser.expression.Function;
-import net.sf.jsqlparser.expression.InverseExpression;
-import net.sf.jsqlparser.expression.JdbcParameter;
 import net.sf.jsqlparser.expression.LongValue;
-import net.sf.jsqlparser.expression.NullValue;
 import net.sf.jsqlparser.expression.Parenthesis;
-import net.sf.jsqlparser.expression.StringValue;
-import net.sf.jsqlparser.expression.TimeValue;
-import net.sf.jsqlparser.expression.TimestampValue;
-import net.sf.jsqlparser.expression.WhenClause;
-import net.sf.jsqlparser.expression.operators.arithmetic.Addition;
-import net.sf.jsqlparser.expression.operators.arithmetic.BitwiseAnd;
-import net.sf.jsqlparser.expression.operators.arithmetic.BitwiseOr;
-import net.sf.jsqlparser.expression.operators.arithmetic.BitwiseXor;
-import net.sf.jsqlparser.expression.operators.arithmetic.Concat;
-import net.sf.jsqlparser.expression.operators.arithmetic.Division;
-import net.sf.jsqlparser.expression.operators.arithmetic.Multiplication;
-import net.sf.jsqlparser.expression.operators.arithmetic.Subtraction;
 import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
-import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
-import net.sf.jsqlparser.expression.operators.relational.Between;
-import net.sf.jsqlparser.expression.operators.relational.EqualsTo;
-import net.sf.jsqlparser.expression.operators.relational.ExistsExpression;
 import net.sf.jsqlparser.expression.operators.relational.GreaterThan;
 import net.sf.jsqlparser.expression.operators.relational.GreaterThanEquals;
-import net.sf.jsqlparser.expression.operators.relational.InExpression;
-import net.sf.jsqlparser.expression.operators.relational.IsNullExpression;
-import net.sf.jsqlparser.expression.operators.relational.LikeExpression;
-import net.sf.jsqlparser.expression.operators.relational.Matches;
-import net.sf.jsqlparser.expression.operators.relational.MinorThan;
 import net.sf.jsqlparser.expression.operators.relational.MinorThanEquals;
-import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
 import net.sf.jsqlparser.parser.CCJSqlParserManager;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.Statement;
+import net.sf.jsqlparser.statement.select.FromItem;
 import net.sf.jsqlparser.statement.select.FromItemVisitor;
+import net.sf.jsqlparser.statement.select.Join;
 import net.sf.jsqlparser.statement.select.PlainSelect;
 import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.select.SelectVisitor;
@@ -67,7 +37,7 @@ public abstract class Rewriter {
 	public static class StupidRewriter extends Rewriter {
 		@Override
 		public List<Subquery> rewrite(Query q) {
-			return Arrays.asList(new Subquery(q, q.getSql()));
+			return Arrays.asList(new Subquery(q, q.getSql(), 0));
 		}
 	}
 
@@ -111,13 +81,22 @@ public abstract class Rewriter {
 						@Override
 						public void visit(PlainSelect plainSelect) {
 							selects.add(plainSelect);
+
+							for (Object o : plainSelect.getJoins()) {
+								FromItem fo = ((Join) o).getRightItem();
+								if (fo instanceof Table) {
+									tables.add(((Table) fo).getName()
+											.toLowerCase());
+								}
+
+							}
+
 							plainSelect.getFromItem().accept(
 									new FromItemVisitor() {
 
 										@Override
 										public void visit(SubJoin subjoin) {
 											log.warn("Subjoins not supported, sorry.");
-
 										}
 
 										@Override
@@ -149,12 +128,12 @@ public abstract class Rewriter {
 			if (!tables.contains(factTableName)) {
 				log.warn("Could not find fact table " + factTableName + " in "
 						+ q.getSql());
-				return Arrays.asList(new Subquery(q, q.getSql()));
+				return Arrays.asList(new Subquery(q, q.getSql(), 0));
 			}
 
 			if (selects.size() != 1) {
 				log.warn("Did not find a single plain select in " + q.getSql());
-				return Arrays.asList(new Subquery(q, q.getSql()));
+				return Arrays.asList(new Subquery(q, q.getSql(), 0));
 			}
 
 			List<Subquery> subqueries = new ArrayList<Subquery>(numSubqueries);
@@ -176,9 +155,6 @@ public abstract class Rewriter {
 				if (keyMin == keyMax) {
 					break;
 				}
-
-				String whereAdd = factTableKey + " " + lt + " " + keyMin
-						+ " AND " + factTableKey + " <= " + keyMax;
 
 				// TODO: add some sort of verification that these do not overlap
 
@@ -231,7 +207,7 @@ public abstract class Rewriter {
 
 				// TODO: do not add subqueries that are outside existing filter
 				// conditions
-				subqueries.add(new Subquery(q, ps.toString()));
+				subqueries.add(new Subquery(q, ps.toString(), i));
 				lt = ">";
 			}
 

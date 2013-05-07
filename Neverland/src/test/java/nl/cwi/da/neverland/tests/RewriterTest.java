@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.util.List;
+import java.util.Map.Entry;
 
 import nl.cwi.da.neverland.internal.NeverlandException;
 import nl.cwi.da.neverland.internal.Query;
@@ -19,14 +20,14 @@ public class RewriterTest {
 	private static Logger log = Logger.getLogger(RewriterTest.class);
 	private Rewriter rw = new NotSoStupidRewriter("lineitem", "l_orderkey", 0,
 			60000, 6);
-	
+
 	@Test
 	public void selectStarRewriterTest() throws NeverlandException {
-		
+
 		Query q = new Query(
 				"SELECT SUM(l_extendedprice * l_discount) FROM lineitem");
 		List<Subquery> sqs = rw.rewrite(q);
-		
+
 		for (Subquery sq : sqs) {
 			log.info(sq);
 			assertEquals(q, sq.getParent());
@@ -34,18 +35,17 @@ public class RewriterTest {
 		}
 
 	}
-	
+
 	@Test
 	public void limitOrderRewriterTest() throws NeverlandException {
 		Query q = new Query(
 				"SELECT SUM(l_extendedprice * l_discount) FROM lineitem ORDER BY foo LIMIT 100;");
-		List<Subquery> sqs = rw.rewrite(q);	
+		List<Subquery> sqs = rw.rewrite(q);
 		for (Subquery sq : sqs) {
 			log.info(sq);
 			assertEquals(q, sq.getParent());
 		}
 	}
-
 
 	@Test
 	public void unionRewriterTest() {
@@ -56,7 +56,7 @@ public class RewriterTest {
 	public void existingRestrictionRewriterTest() throws NeverlandException {
 		Query q = new Query(
 				"SELECT SUM(l_extendedprice * l_discount) FROM lineitem where l_extendedprice > 42;");
-		List<Subquery> sqs = rw.rewrite(q);	
+		List<Subquery> sqs = rw.rewrite(q);
 		for (Subquery sq : sqs) {
 			log.info(sq);
 			assertEquals(q, sq.getParent());
@@ -65,7 +65,16 @@ public class RewriterTest {
 	}
 
 	@Test
-	public void noFactTableRewriterTest() {
-
+	public void ssbmRewriterTest() throws NeverlandException {
+		Rewriter rw = new NotSoStupidRewriter("lineorder", "lo_orderkey", 0,
+				60000, 6);
+		for (Entry<String, String> e : SSBM.QUERIES.entrySet()) {
+			log.info(e.getKey());
+			Query q = new Query(e.getValue());
+			List<Subquery> sqs = rw.rewrite(q);
+			for (Subquery sq : sqs) {
+				log.info(sq);
+			}
+		}
 	}
 }

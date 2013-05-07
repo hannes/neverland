@@ -17,6 +17,10 @@ public abstract class Scheduler {
 		public Query getQuery() {
 			return q;
 		}
+
+		public long getTimeoutMs() {
+			return 60*1000;
+		}
 	}
 
 	public abstract SubquerySchedule schedule(List<NeverlandNode> nodes,

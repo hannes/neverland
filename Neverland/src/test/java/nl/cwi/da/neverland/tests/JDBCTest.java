@@ -44,7 +44,7 @@ public class JDBCTest {
 				.getConnection("jdbc:neverland://localhost:50002/db");
 
 		Statement s = conn.createStatement();
-		ResultSet rs = s.executeQuery("SELECT * FROM lineitem LIMIT 1000");
+		ResultSet rs = s.executeQuery(SSBM.Q01);
 		assertTrue(rs.next());
 
 	}

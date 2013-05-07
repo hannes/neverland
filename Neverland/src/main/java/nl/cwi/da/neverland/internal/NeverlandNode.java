@@ -1,11 +1,16 @@
 package nl.cwi.da.neverland.internal;
 
 public class NeverlandNode {
-	private String jdbc;
+	private String jdbcUrl;
+	private String jdbcUser;
+	private String jdbcPass;
 	private String sessionId;
 
-	public NeverlandNode(String jdbc, String sessionId) {
-		this.jdbc = jdbc;
+	public NeverlandNode(String jdbcUrl, String jdbcUser, String jdbcPass,
+			String sessionId) {
+		this.jdbcUrl = jdbcUrl;
+		this.jdbcUser = jdbcUser;
+		this.jdbcPass = jdbcPass;
 		this.sessionId = sessionId;
 	}
 
@@ -13,8 +18,16 @@ public class NeverlandNode {
 		return sessionId;
 	}
 
-	public String getJdbc() {
-		return jdbc;
+	public String getJdbcUrl() {
+		return jdbcUrl;
+	}
+
+	public String getJdbcUser() {
+		return jdbcUser;
+	}
+
+	public String getJdbcPass() {
+		return jdbcPass;
 	}
 
 }
