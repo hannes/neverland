@@ -15,6 +15,7 @@ import java.sql.Statement;
 import nl.cwi.da.neverland.client.NeverlandResultSet;
 import nl.cwi.da.neverland.daemons.Coordinator;
 import nl.cwi.da.neverland.daemons.Worker;
+import nl.cwi.da.neverland.internal.ResultCombiner;
 
 import org.junit.Test;
 
@@ -46,6 +47,7 @@ public class JDBCTest {
 		Statement s = conn.createStatement();
 		ResultSet rs = s.executeQuery(SSBM.Q01);
 		assertTrue(rs.next());
+		ResultCombiner.printResultSet(rs, System.out);
 
 	}
 

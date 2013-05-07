@@ -19,28 +19,32 @@ import java.util.concurrent.TimeUnit;
 
 import javax.sql.rowset.CachedRowSet;
 
-import nl.cwi.da.neverland.daemons.Coordinator;
 import nl.cwi.da.neverland.internal.Scheduler.SubquerySchedule;
 
 import org.apache.log4j.Logger;
-import org.apache.mina.core.session.IoSession;
 
 import com.mchange.v2.c3p0.ComboPooledDataSource;
 import com.sun.rowset.CachedRowSetImpl;
 
 public abstract class Executor {
 
-	public abstract void executeSchedule(Scheduler.SubquerySchedule schedule,
-			IoSession session) throws NeverlandException;
+	public abstract List<ResultSet> executeSchedule(
+			Scheduler.SubquerySchedule schedule) throws NeverlandException;
 
-	public static class StupidExecutor extends Executor {
+	public static class MultiThreadedExecutor extends Executor {
 		private Map<String, ComboPooledDataSource> dataSources = new HashMap<String, ComboPooledDataSource>();
-		private static Logger log = Logger.getLogger(StupidExecutor.class);
+		private static Logger log = Logger
+				.getLogger(MultiThreadedExecutor.class);
 
-		private static final int EXECUTOR_THREADS = 1000;
+		private int connectionsPerNode;
+		private ExecutorService executorService;
 
-		ExecutorService executorService = Executors
-				.newFixedThreadPool(EXECUTOR_THREADS);
+		public MultiThreadedExecutor(int executorThreads, int connectionsPerNode) {
+			this.connectionsPerNode = connectionsPerNode;
+			this.executorService = Executors
+					.newFixedThreadPool(executorThreads);
+		}
+
 		ScheduledExecutorService canceller = Executors
 				.newSingleThreadScheduledExecutor();
 
@@ -56,10 +60,8 @@ public abstract class Executor {
 		}
 
 		@Override
-		public void executeSchedule(SubquerySchedule schedule, IoSession session)
+		public List<ResultSet> executeSchedule(SubquerySchedule schedule)
 				throws NeverlandException {
-			// TODO do this in the background, possibly with the actor model!
-
 			int subqueries = 0;
 
 			List<Future<ResultSet>> resultSetsFutures = new ArrayList<Future<ResultSet>>();
@@ -85,7 +87,7 @@ public abstract class Executor {
 					// some config, rather arbitrary. however, number cpus?
 					cpds.setMinPoolSize(0);
 					cpds.setAcquireIncrement(1);
-					cpds.setMaxPoolSize(8);
+					cpds.setMaxPoolSize(connectionsPerNode);
 
 					dataSources.put(nn.getId(), cpds);
 				}
@@ -111,13 +113,15 @@ public abstract class Executor {
 										c = cpds.getConnection();
 										s = c.createStatement();
 										rs = s.executeQuery(sq.getSql());
-
+										
 										crs.populate(rs);
-
+										crs.beforeFirst();
+										
 										log.info("Got result on " + sq
 												+ " from " + cpds.getJdbcUrl());
 									} catch (SQLException e) {
 										log.warn(e);
+										e.printStackTrace();
 									} finally {
 										try {
 											rs.close();
@@ -150,10 +154,7 @@ public abstract class Executor {
 				throw new NeverlandException(
 						"Not enough result sets found to combine, something must have gone wrong.");
 			}
-			ResultCombiner rc = new ResultCombiner.ConcatResultCombiner();
-			ResultSet aggrSet = rc.combine(schedule.getQuery(), resultSets);
-			Coordinator.serializeResultSet(aggrSet, session);
-			session.close(false);
+			return resultSets;
 		}
 	}
 }

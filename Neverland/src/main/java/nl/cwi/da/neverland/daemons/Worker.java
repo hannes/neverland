@@ -50,6 +50,9 @@ public class Worker extends Thread implements Watcher {
 						+ Constants.ADVERTISE_DELAY_MS + " ms", e);
 			}
 
+			// TODO: check JDBC connection(?)
+			// problem: we might not have the proper JDBC driver here...
+			
 			try {
 				Thread.sleep(Constants.ADVERTISE_DELAY_MS);
 			} catch (InterruptedException e) {

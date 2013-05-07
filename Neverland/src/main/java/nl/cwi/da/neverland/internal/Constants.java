@@ -18,5 +18,6 @@ public class Constants {
 	public static final int JDBC_PORT = 50002;
 	
 	public static final String MAGIC_HEADER = "dpfkg";
+	public static final String GROUP_NAME = "__neverland_groupcount";
 
 }

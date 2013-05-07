@@ -17,6 +17,7 @@ import nl.cwi.da.neverland.internal.Constants;
 import nl.cwi.da.neverland.internal.Executor;
 import nl.cwi.da.neverland.internal.NeverlandNode;
 import nl.cwi.da.neverland.internal.Query;
+import nl.cwi.da.neverland.internal.ResultCombiner;
 import nl.cwi.da.neverland.internal.Rewriter;
 import nl.cwi.da.neverland.internal.Scheduler;
 import nl.cwi.da.neverland.internal.Subquery;
@@ -66,7 +67,7 @@ public class Coordinator extends Thread implements Watcher {
 		this.rewriter = new NotSoStupidRewriter("lineorder", "lo_orderkey", 0,
 				60000, 99);
 		this.scheduler = new Scheduler.StupidScheduler();
-		this.executor = new Executor.StupidExecutor();
+		this.executor = new Executor.MultiThreadedExecutor(100, 8);
 
 	}
 
@@ -133,7 +134,8 @@ public class Coordinator extends Thread implements Watcher {
 					String jdbc = new String(zkc.getData(Constants.ZK_PREFIX
 							+ "/" + n, false, null));
 					// TODO: get user/pass from zookeeper?
-					NeverlandNode nn = new NeverlandNode(jdbc,"monetdb","monetdb", n);
+					NeverlandNode nn = new NeverlandNode(jdbc, "monetdb",
+							"monetdb", n);
 					nnodes.add(nn);
 				}
 				this.nodes = nnodes;
@@ -216,7 +218,13 @@ public class Coordinator extends Thread implements Watcher {
 				List<Subquery> subqueries = coord.getRewriter().rewrite(q);
 				Scheduler.SubquerySchedule schedule = coord.getScheduler()
 						.schedule(coord.getCurrentNodes(), subqueries);
-				coord.getExecutor().executeSchedule(schedule, session);
+
+				List<ResultSet> resultSets = coord.getExecutor()
+						.executeSchedule(schedule);
+				ResultCombiner rc = new ResultCombiner.ConcatResultCombiner();
+				ResultSet aggrSet = rc.combine(schedule.getQuery(), resultSets);
+				Coordinator.serializeResultSet(aggrSet, session);
+				session.close(false);
 			}
 		}
 	}
