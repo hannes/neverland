@@ -51,32 +51,53 @@ public abstract class ResultCombiner {
 
 			public void merge(Query q, AggregationValue av) {
 				for (Entry<Integer, Object> ov : entrySet()) {
-					Object nv = av.get(ov.getKey());
 
-					// TODO: implement these...
+					Number nvv = (Number) av.get(ov.getKey());
+					Number ovv = (Number) ov.getValue();
+					Number nv = 0;
+
 					switch (q.getAggrType(ov.getKey())) {
 					case AVG:
+						log.warn("AVG not supported yet");
 						break;
 					case COUNT:
-						break;
-					case FIRST:
-						break;
-					case LAST:
+						nv = nvv.doubleValue() + ovv.doubleValue();
 						break;
 					case MAX:
+						nv = Math.min(nvv.doubleValue(), nvv.doubleValue());
 						break;
 					case MIN:
+						nv = Math.min(nvv.doubleValue(), nvv.doubleValue());
 						break;
 					case SUM:
-						put(ov.getKey(),
-								Double.parseDouble(ov.getValue().toString())
-										+ Double.parseDouble(nv.toString()));
+						nv = nvv.doubleValue() + ovv.doubleValue();
 						break;
 					default:
 						log.warn("errrm");
 
 						break;
 					}
+
+					Number nvo = null;
+
+					if (ovv instanceof Integer) {
+						nvo = nv.intValue();
+					}
+					if (ovv instanceof Long) {
+						nvo = nv.longValue();
+					}
+					if (ovv instanceof Float) {
+						nvo = nv.floatValue();
+					}
+					if (ovv instanceof Double) {
+						nvo = nv.doubleValue();
+					}
+					if (nvo == null) {
+						log.warn("Unsupported column type" + ovv.getClass());
+					}
+
+					put(ov.getKey(), nvo);
+
 				}
 			}
 
@@ -109,23 +130,18 @@ public abstract class ResultCombiner {
 				}
 				crs.setMetaData(rwsm);
 
-				// now stream through all result sets
+				// now walk through all result sets
 				for (ResultSet rs : sets) {
 					while (rs.next()) {
 						AggregationGroup ag = new AggregationGroup();
 						AggregationValue av = new AggregationValue();
-						for (int c = 0; c <= rsm.getColumnCount(); c++) {
+						for (int c = 1; c <= rsm.getColumnCount(); c++) {
 							if (q.isGroupKey(c)) {
 								ag.put(c, rs.getObject(c));
-							}
-						}
-
-						for (int c = 0; c <= rsm.getColumnCount(); c++) {
-							if (q.isAggregatedResultColumn(c)) {
+							} else {
 								av.put(c, rs.getObject(c));
 							}
 						}
-
 						if (!aggregationMap.containsKey(ag)) {
 							aggregationMap.put(ag, av);
 						} else {
@@ -159,14 +175,6 @@ public abstract class ResultCombiner {
 	}
 
 	public static class ConcatResultCombiner extends ResultCombiner {
-
-		/*
-		 * private Connection h2;
-		 * 
-		 * public ConcatResultCombiner() { try { Class.forName("org.h2.Driver");
-		 * h2 = DriverManager.getConnection("jdbc:h2:mem:neverland"); } catch
-		 * (Exception e) { log.warn(e); } }
-		 */
 
 		@Override
 		public ResultSet combine(Query q, List<ResultSet> sets)

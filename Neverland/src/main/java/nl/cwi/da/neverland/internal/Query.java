@@ -70,12 +70,15 @@ public class Query {
 					public void visit(PlainSelect plainSelect) {
 						selects.add(plainSelect);
 
-						for (Object o : plainSelect.getJoins()) {
-							FromItem fo = ((Join) o).getRightItem();
-							if (fo instanceof Table) {
-								tables.add(((Table) fo).getName().toLowerCase());
-							}
+						if (plainSelect.getJoins() != null) {
+							for (Object o : plainSelect.getJoins()) {
+								FromItem fo = ((Join) o).getRightItem();
+								if (fo instanceof Table) {
+									tables.add(((Table) fo).getName()
+											.toLowerCase());
+								}
 
+							}
 						}
 
 						plainSelect.getFromItem().accept(new FromItemVisitor() {
@@ -127,7 +130,6 @@ public class Query {
 					}
 					Query.AggregationType aggrType = Enum.valueOf(
 							Query.AggregationType.class, fun);
-					log.info(fun);
 					setAggregated(col, aggrType);
 				}
 				if (sie instanceof Column) {
