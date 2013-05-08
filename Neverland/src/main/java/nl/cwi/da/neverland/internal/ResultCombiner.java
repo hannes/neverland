@@ -29,7 +29,7 @@ public abstract class ResultCombiner {
 		public ResultSet combine(Query q, List<ResultSet> sets)
 				throws NeverlandException {
 
-			if (q.isSingleSelect() && q.hasGrouping()) {
+			if (q.isSingleSelect() && q.needsAggregation()) {
 				return merge.combine(q, sets);
 			} else
 				return concat.combine(q, sets);
@@ -49,6 +49,8 @@ public abstract class ResultCombiner {
 		private static class AggregationValue extends HashMap<Integer, Object> {
 			private static final long serialVersionUID = 1L;
 
+			private long groupCount = 0;
+
 			public void merge(Query q, AggregationValue av) {
 				for (Entry<Integer, Object> ov : entrySet()) {
 
@@ -58,23 +60,29 @@ public abstract class ResultCombiner {
 
 					switch (q.getAggrType(ov.getKey())) {
 					case AVG:
-						log.warn("AVG not supported yet");
+						if (groupCount == 0) {
+							log.warn("Someone tries to aggregate an average without a group count");
+						}
+						long totalCount = groupCount + av.getGroupCount();
+						nv = (ovv.doubleValue() * groupCount + nvv
+								.doubleValue() * av.getGroupCount())
+								/ totalCount;
+						setGroupCount(totalCount);
 						break;
 					case COUNT:
 						nv = nvv.doubleValue() + ovv.doubleValue();
 						break;
 					case MAX:
-						nv = Math.min(nvv.doubleValue(), nvv.doubleValue());
+						nv = Math.max(nvv.doubleValue(), ovv.doubleValue());
 						break;
 					case MIN:
-						nv = Math.min(nvv.doubleValue(), nvv.doubleValue());
+						nv = Math.min(nvv.doubleValue(), ovv.doubleValue());
 						break;
 					case SUM:
 						nv = nvv.doubleValue() + ovv.doubleValue();
 						break;
 					default:
 						log.warn("errrm");
-
 						break;
 					}
 
@@ -101,6 +109,17 @@ public abstract class ResultCombiner {
 				}
 			}
 
+			private long getGroupCount() {
+				return groupCount;
+			}
+
+			public void setGroupCount(long count) {
+				if (count < 1) {
+					log.warn("Someone is using a group count smaller than 1. Trouble brewing...");
+				}
+				this.groupCount = count;
+			}
+
 		}
 
 		@Override
@@ -119,11 +138,31 @@ public abstract class ResultCombiner {
 			try {
 				crs = new CachedRowSetImpl();
 				ResultSetMetaData rsm = sets.get(0).getMetaData();
+				int groupCountCol = 0;
 
 				// idiotic conversion to give meta data to the cached result set
 				RowSetMetaData rwsm = new RowSetMetaDataImpl();
-				rwsm.setColumnCount(rsm.getColumnCount());
+
+				int columnCount = 0;
 				for (int i = 1; i <= rsm.getColumnCount(); i++) {
+					// ignore the group count column we have invented in the
+					// rewrite step
+					if (rsm.getColumnName(i).toLowerCase()
+							.equals(Constants.GROUP_NAME.toLowerCase())) {
+						groupCountCol = i;
+					} else {
+						columnCount++;
+					}
+				}
+				rwsm.setColumnCount(columnCount);
+
+				for (int i = 1; i <= rsm.getColumnCount(); i++) {
+					// ignore the group count column we have invented in the
+					// rewrite step
+					if (rsm.getColumnName(i).toLowerCase()
+							.equals(Constants.GROUP_NAME.toLowerCase())) {
+						continue;
+					}
 					rwsm.setColumnName(i, rsm.getColumnName(i));
 					rwsm.setColumnType(i, rsm.getColumnType(i));
 					rwsm.setColumnTypeName(i, rsm.getColumnTypeName(i));
@@ -135,11 +174,16 @@ public abstract class ResultCombiner {
 					while (rs.next()) {
 						AggregationGroup ag = new AggregationGroup();
 						AggregationValue av = new AggregationValue();
+
 						for (int c = 1; c <= rsm.getColumnCount(); c++) {
-							if (q.isGroupKey(c)) {
-								ag.put(c, rs.getObject(c));
-							} else {
+							if (groupCountCol == c) {
+								av.setGroupCount(rs.getLong(groupCountCol));
+								continue;
+							}
+							if (q.isAggregatedResultColumn(c)) {
 								av.put(c, rs.getObject(c));
+							} else {
+								ag.put(c, rs.getObject(c));
 							}
 						}
 						if (!aggregationMap.containsKey(ag)) {

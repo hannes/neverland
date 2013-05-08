@@ -118,26 +118,26 @@ public class Query {
 		// houston we have a grouping with an avg aggregation function
 		// add the __groupcount variable to properly calculate avg
 		// also, find out which results columns are grouped
-		if (singleSelect.getGroupByColumnReferences() != null) {
-			int col = 1; // JDBC indices...
-			for (Object o : singleSelect.getSelectItems()) {
-				SelectExpressionItem si = (SelectExpressionItem) o;
-				Expression sie = si.getExpression();
-				if (sie instanceof Function) {
-					String fun = ((Function) sie).getName().toUpperCase();
-					if (fun.equals("AVG") || fun.equals("COUNT")) {
-						needsCounts = true;
-					}
-					Query.AggregationType aggrType = Enum.valueOf(
-							Query.AggregationType.class, fun);
-					setAggregated(col, aggrType);
+		int col = 1; // JDBC indices...
+		for (Object o : singleSelect.getSelectItems()) {
+			SelectExpressionItem si = (SelectExpressionItem) o;
+			Expression sie = si.getExpression();
+			if (sie instanceof Function) {
+				String fun = ((Function) sie).getName().toUpperCase();
+				if (fun.equals("AVG") || fun.equals("COUNT")) {
+					needsCounts = true;
 				}
-				if (sie instanceof Column) {
-					setGroup(col);
-				}
-				col++;
+				Query.AggregationType aggrType = Enum.valueOf(
+						Query.AggregationType.class, fun);
+				setAggregated(col, aggrType);
 			}
+			if (sie instanceof Column
+					&& singleSelect.getGroupByColumnReferences() != null) {
+				setGroup(col);
+			}
+			col++;
 		}
+
 	}
 
 	public String getSql() {
@@ -213,5 +213,9 @@ public class Query {
 
 	public boolean hasGrouping() {
 		return singleSelect.getGroupByColumnReferences() != null;
+	}
+
+	public boolean needsAggregation() {
+		return aggrCols.size() > 0;
 	}
 }
