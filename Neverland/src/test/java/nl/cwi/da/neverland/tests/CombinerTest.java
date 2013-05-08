@@ -1,19 +1,19 @@
 package nl.cwi.da.neverland.tests;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertTrue;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Random;
 
-import nl.cwi.da.neverland.internal.Executor.MultiThreadedExecutor;
 import nl.cwi.da.neverland.internal.Constants;
+import nl.cwi.da.neverland.internal.Executor.MultiThreadedExecutor;
 import nl.cwi.da.neverland.internal.NeverlandException;
 import nl.cwi.da.neverland.internal.NeverlandNode;
 import nl.cwi.da.neverland.internal.Query;
@@ -31,23 +31,27 @@ public class CombinerTest {
 	ResultCombiner r = new ResultCombiner.SmartResultCombiner();
 	List<ResultSet> rss = new ArrayList<ResultSet>();
 
-	@Ignore
 	@Test
-	public void ssbmQ4IntegrationTest() throws NeverlandException, SQLException {
-
+	public void ssbmIntegrationTest() throws NeverlandException, SQLException,
+			InterruptedException {
 		Rewriter rw = new NotSoStupidRewriter("lineorder", "lo_orderkey", 0,
 				60000, 10);
-		Query q = new Query(SSBM.Q04);
-		Scheduler.SubquerySchedule schedule = new StupidScheduler().schedule(
-				Arrays.asList(new NeverlandNode(
-						"jdbc:monetdb://localhost:50000/ssbm-sf1", "monetdb",
-						"monetdb", "42")), rw.rewrite(q));
 
-		List<ResultSet> rss = new MultiThreadedExecutor(100, 10)
-				.executeSchedule(schedule);
+		for (Entry<String, String> e : SSBM.QUERIES.entrySet()) {
+			System.out.println(e.getKey());
+			Query q = new Query(e.getValue());
+			Scheduler.SubquerySchedule schedule = new StupidScheduler()
+					.schedule(Arrays.asList(new NeverlandNode(
+							"jdbc:monetdb://localhost:50000/ssbm-sf1",
+							"monetdb", "monetdb", "42")), rw.rewrite(q));
 
-		ResultSet rc = r.combine(q, rss);
-		ResultCombiner.printResultSet(rc, System.out);
+			List<ResultSet> rss = new MultiThreadedExecutor(10, 2)
+					.executeSchedule(schedule);
+
+			ResultSet rc = r.combine(q, rss);
+			ResultCombiner.printResultSet(rc, System.out);
+			//assertTrue(rc.next());
+		}
 	}
 
 	@Before
@@ -65,6 +69,7 @@ public class CombinerTest {
 	}
 
 	@Ignore
+	// we like the performance so far...
 	@Test
 	public void performanceTest() throws SQLException, NeverlandException {
 		int datasize = 100000;
@@ -93,7 +98,6 @@ public class CombinerTest {
 			ResultSet rs = r.combine(q, rss);
 			int size = 0;
 			while (rs.next()) {
-				// assertEquals(rs.getInt(1), max);
 				size++;
 			}
 			assertEquals(size, groupsize);
@@ -531,5 +535,4 @@ public class CombinerTest {
 		}
 		assertEquals(size, 1);
 	}
-
 }

@@ -277,7 +277,7 @@ public class Coordinator extends Thread implements Watcher {
 			ResultSetMetaData rsm = aggrSet.getMetaData();
 			for (int i = 1; i <= rsm.getColumnCount(); i++) {
 				result += rsm.getColumnName(i);
-				if (i < rsm.getColumnCount() - 1) {
+				if (i < rsm.getColumnCount()) {
 					result += "\t";
 				}
 			}
@@ -292,7 +292,7 @@ public class Coordinator extends Thread implements Watcher {
 				} else {
 					needsQuotes.put(i, false);
 				}
-				if (i < rsm.getColumnCount() - 1) {
+				if (i < rsm.getColumnCount()) {
 					result += "\t";
 				}
 			}
@@ -307,7 +307,7 @@ public class Coordinator extends Thread implements Watcher {
 					if (needsQuotes.get(i)) {
 						result += "\"";
 					}
-					if (i < rsm.getColumnCount() - 1) {
+					if (i < rsm.getColumnCount()) {
 						result += "\t";
 					}
 				}

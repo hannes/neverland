@@ -88,6 +88,8 @@ public abstract class Executor {
 					cpds.setMinPoolSize(0);
 					cpds.setAcquireIncrement(1);
 					cpds.setMaxPoolSize(connectionsPerNode);
+					// TODO: investigate here...
+					cpds.setNumHelperThreads(10);
 
 					dataSources.put(nn.getId(), cpds);
 				}
@@ -97,7 +99,6 @@ public abstract class Executor {
 				// right, so now execute all the queries
 				for (final Subquery sq : sentry.getValue()) {
 					subqueries++;
-
 					resultSetsFutures.add(executeTask(
 							new Callable<ResultSet>() {
 								@Override
@@ -108,32 +109,35 @@ public abstract class Executor {
 									ResultSet rs = null;
 
 									try {
-										log.info("Running " + sq + " on "
+										log.debug("Running " + sq + " on "
 												+ cpds.getJdbcUrl());
 										c = cpds.getConnection();
 										s = c.createStatement();
 										rs = s.executeQuery(sq.getSql());
-										
+
 										crs.populate(rs);
+
 										crs.beforeFirst();
-										
-										log.info("Got result on " + sq
+
+										log.debug("Got result on " + sq
 												+ " from " + cpds.getJdbcUrl());
 									} catch (SQLException e) {
 										log.warn(e);
-										e.printStackTrace();
 									} finally {
 										try {
 											rs.close();
 										} catch (SQLException se) {
+											log.warn(se);
 										}
 										try {
 											s.close();
 										} catch (SQLException se) {
+											log.warn(se);
 										}
 										try {
 											c.close();
 										} catch (SQLException se) {
+											log.warn(se);
 										}
 									}
 									return crs;

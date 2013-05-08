@@ -53,7 +53,6 @@ public abstract class ResultCombiner {
 
 			public void merge(Query q, AggregationValue av) {
 				for (Entry<Integer, Object> ov : entrySet()) {
-
 					Number nvv = (Number) av.get(ov.getKey());
 					Number ovv = (Number) ov.getValue();
 					Number nv = 0;
@@ -129,7 +128,6 @@ public abstract class ResultCombiner {
 			if (sets.size() < 1) {
 				throw new NeverlandException("Need at least one result set");
 			}
-
 			CachedRowSet crs = null;
 
 			// hash map for aggregations
@@ -172,6 +170,7 @@ public abstract class ResultCombiner {
 				// now walk through all result sets
 				for (ResultSet rs : sets) {
 					while (rs.next()) {
+
 						AggregationGroup ag = new AggregationGroup();
 						AggregationValue av = new AggregationValue();
 
@@ -180,12 +179,25 @@ public abstract class ResultCombiner {
 								av.setGroupCount(rs.getLong(groupCountCol));
 								continue;
 							}
+
+							Object value = rs.getObject(c);
+							if (value == null) {
+								log.debug("NULL value to aggregate? I don't think so...");
+								continue;
+							}
 							if (q.isAggregatedResultColumn(c)) {
-								av.put(c, rs.getObject(c));
+								av.put(c, value);
 							} else {
-								ag.put(c, rs.getObject(c));
+								ag.put(c, value);
 							}
 						}
+
+						// empty keys make sense, empty values not...
+						if (av.size() == 0) {
+							continue;
+						}
+
+						// so null values do not really interest us...
 						if (!aggregationMap.containsKey(ag)) {
 							aggregationMap.put(ag, av);
 						} else {
@@ -301,7 +313,12 @@ public abstract class ResultCombiner {
 
 			while (rs.next()) {
 				for (int i = 1; i <= rsm.getColumnCount(); i++) {
-					ps.print(rs.getObject(i).toString());
+					Object o = rs.getObject(i);
+					if (o == null) {
+						ps.print("NULL");
+					} else {
+						ps.print(rs.getObject(i).toString());
+					}
 					if (i < rsm.getColumnCount()) {
 						ps.print("\t");
 					}
