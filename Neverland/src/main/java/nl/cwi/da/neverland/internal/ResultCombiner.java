@@ -9,13 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import javax.sql.RowSetMetaData;
-import javax.sql.rowset.CachedRowSet;
-import javax.sql.rowset.RowSetMetaDataImpl;
-
 import org.apache.log4j.Logger;
-
-import com.sun.rowset.CachedRowSetImpl;
 
 public abstract class ResultCombiner {
 	public abstract ResultSet combine(Query q, List<ResultSet> sets)
@@ -128,18 +122,15 @@ public abstract class ResultCombiner {
 			if (sets.size() < 1) {
 				throw new NeverlandException("Need at least one result set");
 			}
-			CachedRowSet crs = null;
+			InternalResultSet crs = null;
 
 			// hash map for aggregations
 			Map<AggregationGroup, AggregationValue> aggregationMap = new HashMap<AggregationGroup, AggregationValue>();
 
 			try {
-				crs = new CachedRowSetImpl();
+				crs = new InternalResultSet();
 				ResultSetMetaData rsm = sets.get(0).getMetaData();
 				int groupCountCol = 0;
-
-				// idiotic conversion to give meta data to the cached result set
-				RowSetMetaData rwsm = new RowSetMetaDataImpl();
 
 				int columnCount = 0;
 				for (int i = 1; i <= rsm.getColumnCount(); i++) {
@@ -152,7 +143,7 @@ public abstract class ResultCombiner {
 						columnCount++;
 					}
 				}
-				rwsm.setColumnCount(columnCount);
+				crs.setColumnCount(columnCount);
 
 				for (int i = 1; i <= rsm.getColumnCount(); i++) {
 					// ignore the group count column we have invented in the
@@ -161,11 +152,10 @@ public abstract class ResultCombiner {
 							.equals(Constants.GROUP_NAME.toLowerCase())) {
 						continue;
 					}
-					rwsm.setColumnName(i, rsm.getColumnName(i));
-					rwsm.setColumnType(i, rsm.getColumnType(i));
-					rwsm.setColumnTypeName(i, rsm.getColumnTypeName(i));
+					crs.setColumnName(i, rsm.getColumnName(i));
+					crs.setColumnType(i, rsm.getColumnType(i));
+					crs.setColumnTypeName(i, rsm.getColumnTypeName(i));
 				}
-				crs.setMetaData(rwsm);
 
 				// now walk through all result sets
 				for (ResultSet rs : sets) {
@@ -221,6 +211,9 @@ public abstract class ResultCombiner {
 				crs.moveToCurrentRow();
 				crs.beforeFirst();
 
+				crs.sort(q);
+				// TODO: sort
+
 			} catch (SQLException e) {
 				throw new NeverlandException("Failed to combine results for "
 						+ q, e);
@@ -235,34 +228,25 @@ public abstract class ResultCombiner {
 		@Override
 		public ResultSet combine(Query q, List<ResultSet> sets)
 				throws NeverlandException {
-			CachedRowSet crs = null;
+			InternalResultSet crs = null;
 
 			if (sets.size() < 1) {
 				throw new NeverlandException("Need at least one result set");
 			}
 
 			try {
-				crs = new CachedRowSetImpl();
-
-				crs.populate(sets.get(0));
-				crs.moveToInsertRow();
-
-				ResultSetMetaData rsm = crs.getMetaData();
-
+				crs = new InternalResultSet(sets.get(0));
+				crs.add(sets.get(0));
 				for (int r = 1; r < sets.size(); r++) {
-					ResultSet rs = sets.get(r);
-					rs.beforeFirst();
-					while (rs.next()) {
-						for (int i = 1; i <= rsm.getColumnCount(); i++) {
-							crs.updateObject(i, rs.getObject(i));
-						}
-						crs.insertRow();
-					}
+					crs.add(sets.get(r));
 				}
-				crs.moveToCurrentRow();
-				crs.beforeFirst();
 			} catch (SQLException e) {
 				throw new NeverlandException("Unable to combine result sets", e);
+			}
+			try {
+				crs.sort(q);
+			} catch (SQLException e) {
+				throw new NeverlandException(e);
 			}
 			return crs;
 		}

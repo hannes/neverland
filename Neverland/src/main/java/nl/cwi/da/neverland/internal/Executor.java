@@ -17,14 +17,11 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import javax.sql.rowset.CachedRowSet;
-
 import nl.cwi.da.neverland.internal.Scheduler.SubquerySchedule;
 
 import org.apache.log4j.Logger;
 
 import com.mchange.v2.c3p0.ComboPooledDataSource;
-import com.sun.rowset.CachedRowSetImpl;
 
 public abstract class Executor {
 
@@ -103,7 +100,7 @@ public abstract class Executor {
 							new Callable<ResultSet>() {
 								@Override
 								public ResultSet call() throws Exception {
-									CachedRowSet crs = new CachedRowSetImpl();
+									InternalResultSet crs = null;
 									Connection c = null;
 									Statement s = null;
 									ResultSet rs = null;
@@ -115,14 +112,15 @@ public abstract class Executor {
 										s = c.createStatement();
 										rs = s.executeQuery(sq.getSql());
 
-										crs.populate(rs);
+										crs = new InternalResultSet(rs);
 
 										crs.beforeFirst();
-
+										
 										log.debug("Got result on " + sq
 												+ " from " + cpds.getJdbcUrl());
 									} catch (SQLException e) {
 										log.warn(e);
+										e.printStackTrace();
 									} finally {
 										try {
 											rs.close();
@@ -148,7 +146,10 @@ public abstract class Executor {
 
 			for (Future<ResultSet> rf : resultSetsFutures) {
 				try {
-					resultSets.add(rf.get());
+					ResultSet r = rf.get();
+					if (r != null) {
+						resultSets.add(r);
+					}
 				} catch (Exception e) {
 					log.warn(e);
 				}

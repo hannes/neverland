@@ -1,6 +1,7 @@
 package nl.cwi.da.neverland.tests;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -30,6 +31,7 @@ public class CombinerTest {
 	ResultCombiner r = new ResultCombiner.SmartResultCombiner();
 	List<ResultSet> rss = new ArrayList<ResultSet>();
 
+	@Ignore
 	@Test
 	public void ssbmIntegrationTest() throws NeverlandException, SQLException,
 			InterruptedException {
@@ -46,10 +48,9 @@ public class CombinerTest {
 
 			List<ResultSet> rss = new MultiThreadedExecutor(10, 2)
 					.executeSchedule(schedule);
-
 			ResultSet rc = r.combine(q, rss);
 			ResultCombiner.printResultSet(rc, System.out);
-			//assertTrue(rc.next());
+			// assertTrue(rc.next());
 		}
 	}
 
@@ -206,6 +207,49 @@ public class CombinerTest {
 			size++;
 		}
 		assertEquals(size, 4);
+	}
+
+	@Test
+	public void order() throws NeverlandException, SQLException {
+		Query q = new Query(
+				"select sum(a),b,c from table1 group by b,c order by  b, c desc");
+		TestResultSet rs1 = new TestResultSet(al("sum_a", "b", "c"), al(
+				Types.INTEGER, Types.INTEGER, Types.INTEGER), al("INT", "INT",
+				"INT"), 3);
+
+		TestResultSet rs2 = new TestResultSet(rs1);
+
+		rs1.setColumn(1, alo(5, 2, 3));
+		rs1.setColumn(2, alo(1, 1, 2));
+		rs1.setColumn(3, alo(1, 2, 2));
+
+		rs2.setColumn(1, alo(2, 3, 4));
+		rs2.setColumn(2, alo(1, 2, 3));
+		rs2.setColumn(3, alo(1, 2, 1));
+
+		rss.add(rs1);
+		rss.add(rs2);
+
+		ResultSet rs = r.combine(q, rss);
+		
+		rs.next();
+		assertEquals(rs.getInt(1), 2);
+		assertEquals(rs.getInt(2), 1);
+		assertEquals(rs.getInt(3), 2);
+		rs.next();
+		assertEquals(rs.getInt(1), 7);
+		assertEquals(rs.getInt(2), 1);
+		assertEquals(rs.getInt(3), 1);
+		rs.next();
+		assertEquals(rs.getInt(1), 6);
+		assertEquals(rs.getInt(2), 2);
+		assertEquals(rs.getInt(3), 2);
+		rs.next();
+		assertEquals(rs.getInt(1), 4);
+		assertEquals(rs.getInt(2), 3);
+		assertEquals(rs.getInt(3), 1);
+
+		assertFalse(rs.next());
 	}
 
 	@Test
