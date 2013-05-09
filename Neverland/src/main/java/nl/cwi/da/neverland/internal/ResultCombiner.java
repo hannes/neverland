@@ -4,9 +4,7 @@ import java.io.PrintStream;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,10 +38,8 @@ public abstract class ResultCombiner {
 				.getLogger(AggregationResultCombiner.class);
 
 		// this used to extend HashMap, but we found that to take too long to
-		// instantiate
-		// hence, this is optimized to wrap a simple array of values and
-		// otherwise behave
-		// the same
+		// instantiate hence, this is optimized to wrap a simple array of values
+		// and otherwise behave the same
 		private static class Aggregation {
 			protected Object[] values;
 			private int elementsAdded = 0;
@@ -72,35 +68,6 @@ public abstract class ResultCombiner {
 					return hashCode() == oa.hashCode();
 				}
 				return false;
-			}
-
-			public Object get(int key) {
-				return values[key];
-			}
-
-			private static class AggrEntry implements Entry<Integer, Object> {
-				private int key;
-				private Object value;
-
-				public AggrEntry(Integer key, Object value) {
-					this.key = key;
-					this.value = value;
-				}
-
-				@Override
-				public Integer getKey() {
-					return key;
-				}
-
-				@Override
-				public Object getValue() {
-					return value;
-				}
-
-				@Override
-				public Object setValue(Object value) {
-					throw new UnsupportedOperationException();
-				}
 			}
 		}
 
