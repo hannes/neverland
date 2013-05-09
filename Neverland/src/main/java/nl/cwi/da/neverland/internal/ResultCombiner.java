@@ -4,6 +4,9 @@ import java.io.PrintStream;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,22 +39,94 @@ public abstract class ResultCombiner {
 		private static Logger log = Logger
 				.getLogger(AggregationResultCombiner.class);
 
-		private static class AggregationGroup extends HashMap<Integer, Object> {
-			private static final long serialVersionUID = 1L;
+		// this used to extend HashMap, but we found that to take too long to
+		// instantiate
+		// hence, this is optimized to wrap a simple array of values and
+		// otherwise behave
+		// the same
+		private static class Aggregation {
+			protected Object[] values;
+			private int elementsAdded = 0;
+
+			public Aggregation(int size) {
+				// stupid jdbc indices
+				values = new Object[size + 1];
+			}
+
+			public void put(int index, Object value) {
+				values[index] = value;
+				elementsAdded++;
+			}
+
+			public int size() {
+				return elementsAdded;
+			}
+
+			public int hashCode() {
+				return Arrays.deepHashCode(values);
+			}
+
+			public boolean equals(Object o) {
+				if (o instanceof Aggregation) {
+					Aggregation oa = (Aggregation) o;
+					return hashCode() == oa.hashCode();
+				}
+				return false;
+			}
+
+			public Object get(int key) {
+				return values[key];
+			}
+
+			private static class AggrEntry implements Entry<Integer, Object> {
+				private int key;
+				private Object value;
+
+				public AggrEntry(Integer key, Object value) {
+					this.key = key;
+					this.value = value;
+				}
+
+				@Override
+				public Integer getKey() {
+					return key;
+				}
+
+				@Override
+				public Object getValue() {
+					return value;
+				}
+
+				@Override
+				public Object setValue(Object value) {
+					throw new UnsupportedOperationException();
+				}
+			}
 		}
 
-		private static class AggregationValue extends HashMap<Integer, Object> {
-			private static final long serialVersionUID = 1L;
+		private static class AggregationGroup extends Aggregation {
+			public AggregationGroup(int size) {
+				super(size);
+			}
+		}
+
+		private static class AggregationValue extends Aggregation {
+			public AggregationValue(int size) {
+				super(size);
+			}
 
 			private long groupCount = 0;
 
 			public void merge(Query q, AggregationValue av) {
-				for (Entry<Integer, Object> ov : entrySet()) {
-					Number nvv = (Number) av.get(ov.getKey());
-					Number ovv = (Number) ov.getValue();
+				for (int i = 1; i < values.length; i++) {
+					if (values[i] == null) {
+						continue;
+					}
+					Number nvv = (Number) av.values[i];
+					Number ovv = (Number) values[i];
 					Number nv = 0;
 
-					switch (q.getAggrType(ov.getKey())) {
+					switch (q.getAggrType(i)) {
 					case AVG:
 						if (groupCount == 0) {
 							log.warn("Someone tries to aggregate an average without a group count");
@@ -97,7 +172,7 @@ public abstract class ResultCombiner {
 						log.warn("Unsupported column type" + ovv.getClass());
 					}
 
-					put(ov.getKey(), nvo);
+					put(i, nvo);
 
 				}
 			}
@@ -160,9 +235,10 @@ public abstract class ResultCombiner {
 				// now walk through all result sets
 				for (ResultSet rs : sets) {
 					while (rs.next()) {
-
-						AggregationGroup ag = new AggregationGroup();
-						AggregationValue av = new AggregationValue();
+						AggregationGroup ag = new AggregationGroup(
+								rsm.getColumnCount());
+						AggregationValue av = new AggregationValue(
+								rsm.getColumnCount());
 
 						for (int c = 1; c <= rsm.getColumnCount(); c++) {
 							if (groupCountCol == c) {
@@ -200,11 +276,13 @@ public abstract class ResultCombiner {
 
 				for (Entry<AggregationGroup, AggregationValue> e : aggregationMap
 						.entrySet()) {
-					for (Entry<Integer, Object> eg : e.getKey().entrySet()) {
-						crs.updateObject(eg.getKey(), eg.getValue());
-					}
-					for (Entry<Integer, Object> eg : e.getValue().entrySet()) {
-						crs.updateObject(eg.getKey(), eg.getValue());
+					for (int i = 1; i < e.getKey().values.length; i++) {
+						if (e.getKey().values[i] != null) {
+							crs.updateObject(i, e.getKey().values[i]);
+						}
+						if (e.getValue().values[i] != null) {
+							crs.updateObject(i, e.getValue().values[i]);
+						}
 					}
 					crs.insertRow();
 				}
@@ -212,8 +290,6 @@ public abstract class ResultCombiner {
 				crs.beforeFirst();
 
 				crs.sort(q);
-				// TODO: sort
-
 			} catch (SQLException e) {
 				throw new NeverlandException("Failed to combine results for "
 						+ q, e);

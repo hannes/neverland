@@ -68,12 +68,12 @@ public class CombinerTest {
 		return Arrays.asList(a);
 	}
 
-	@Ignore
+	// @Ignore
 	// we like the performance so far...
 	@Test
 	public void performanceTest() throws SQLException, NeverlandException {
 		int datasize = 100000;
-		int reps = 10;
+		int reps = 1000;
 		int groupsize = 10;
 
 		Integer[] values = new Integer[datasize];
@@ -92,9 +92,10 @@ public class CombinerTest {
 
 		rss.add(rs1);
 
-		Query q = new Query("select max(a),b from table1");
+		Query q = new Query("select max(a),b from table1 group by b");
 
 		for (int rp = 0; rp < reps; rp++) {
+			System.out.println(rp);
 			ResultSet rs = r.combine(q, rss);
 			int size = 0;
 			while (rs.next()) {
@@ -231,7 +232,7 @@ public class CombinerTest {
 		rss.add(rs2);
 
 		ResultSet rs = r.combine(q, rss);
-		
+
 		rs.next();
 		assertEquals(rs.getInt(1), 2);
 		assertEquals(rs.getInt(2), 1);
