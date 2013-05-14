@@ -1,6 +1,7 @@
 package nl.cwi.da.neverland.daemons;
 
 import java.io.IOException;
+import java.util.Iterator;
 
 import nl.cwi.da.neverland.internal.Constants;
 
@@ -10,6 +11,11 @@ import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooDefs.Ids;
 import org.apache.zookeeper.ZooKeeper;
+
+import com.martiansoftware.jsap.FlaggedOption;
+import com.martiansoftware.jsap.JSAP;
+import com.martiansoftware.jsap.JSAPException;
+import com.martiansoftware.jsap.JSAPResult;
 
 public class Worker extends Thread implements Watcher {
 
@@ -22,9 +28,12 @@ public class Worker extends Thread implements Watcher {
 	private String jdbcUri;
 	private String zookeeper;
 
-	public Worker(String zooKeeper, String jdbcUri) {
+	public Worker(String zooKeeper, String jdbcUri, String jdbcUser,
+			String jdbcPass) {
 		this.zookeeper = zooKeeper;
 		this.jdbcUri = jdbcUri;
+
+		// TODO: use and advertise JDBC credentials
 	}
 
 	@Override
@@ -52,7 +61,7 @@ public class Worker extends Thread implements Watcher {
 
 			// TODO: check JDBC connection(?)
 			// problem: we might not have the proper JDBC driver here...
-			
+
 			try {
 				Thread.sleep(Constants.ADVERTISE_DELAY_MS);
 			} catch (InterruptedException e) {
@@ -75,8 +84,52 @@ public class Worker extends Thread implements Watcher {
 		// TODO: do we need this at all?
 	}
 
-	public static void main(String[] args) {
-		new Worker("localhost:" + Constants.ZK_PORT,
-				"jdbc:monetdb://localhost:50000/ssbm-sf1").start();
+	public static void main(String[] args) throws JSAPException {
+
+		JSAP jsap = new JSAP();
+
+		jsap.registerParameter(new FlaggedOption("jdbcuri").setShortFlag('j')
+				.setLongFlag("jdbc-uri").setStringParser(JSAP.STRING_PARSER)
+				.setRequired(true).setHelp("Database JDBC URI"));
+
+		jsap.registerParameter(new FlaggedOption("jdbcuser").setShortFlag('u')
+				.setLongFlag("jdbc-user").setStringParser(JSAP.STRING_PARSER)
+				.setRequired(false).setDefault("")
+				.setHelp("Database JDBC User"));
+
+		jsap.registerParameter(new FlaggedOption("jdbcpass").setShortFlag('p')
+				.setLongFlag("jdbc-pass").setStringParser(JSAP.STRING_PARSER)
+				.setRequired(false).setDefault("")
+				.setHelp("Database JDBC Password"));
+
+		jsap.registerParameter(new FlaggedOption("zkhost").setShortFlag('z')
+				.setLongFlag("zookeeper-hostname")
+				.setStringParser(JSAP.INETADDRESS_PARSER).setRequired(false)
+				.setDefault("localhost")
+				.setHelp("Hostname of Zookeeper server to connect to"));
+
+		jsap.registerParameter(new FlaggedOption("zkport").setShortFlag('k')
+				.setLongFlag("zookeeper-port")
+				.setStringParser(JSAP.INTEGER_PARSER).setRequired(false)
+				.setDefault(Integer.toString(Constants.ZK_PORT))
+				.setHelp("Portnumber of Zookeeper server to connect to"));
+
+		JSAPResult res = jsap.parse(args);
+
+		if (!res.success()) {
+			@SuppressWarnings("rawtypes")
+			Iterator errs = res.getErrorMessageIterator();
+			while (errs.hasNext()) {
+				System.err.println(errs.next());
+			}
+
+			System.err.println("Usage: " + jsap.getUsage() + "\nParameters: "
+					+ jsap.getHelp());
+			System.exit(-1);
+		}
+
+		new Worker(res.getInetAddress("zkhost").getHostAddress() + ":"
+				+ res.getInt("zkport"), res.getString("jdbcuri"),
+				res.getString("jdbcuser"), res.getString("jdbcpass")).start();
 	}
 }

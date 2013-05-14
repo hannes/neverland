@@ -10,6 +10,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -38,6 +39,11 @@ import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.server.ServerConfig;
 import org.apache.zookeeper.server.ZooKeeperServerMain;
 
+import com.martiansoftware.jsap.FlaggedOption;
+import com.martiansoftware.jsap.JSAP;
+import com.martiansoftware.jsap.JSAPException;
+import com.martiansoftware.jsap.JSAPResult;
+
 public class Coordinator extends Thread implements Watcher {
 	protected ZooKeeper zkc;
 
@@ -51,7 +57,7 @@ public class Coordinator extends Thread implements Watcher {
 	private Scheduler scheduler;
 
 	public Coordinator(String zooKeeper, int jdbcPort) {
-
+		log.info("Coordinator started with Zookeeper at " + zooKeeper);
 		this.zookeeper = zooKeeper;
 		this.jdbcPort = jdbcPort;
 
@@ -128,7 +134,6 @@ public class Coordinator extends Thread implements Watcher {
 		}
 
 		while (coordinatorState == Constants.CoordinatorState.normal) {
-			List<NeverlandNode> nnodes = getCurrentNodes();
 			// TODO: do sth here
 			try {
 				Thread.sleep(Constants.POLL_DELAY_MS);
@@ -144,17 +149,65 @@ public class Coordinator extends Thread implements Watcher {
 		// maybe if we want to react if a node goes down
 	}
 
-	public static void main(String[] args) {
-		startInternalZookeeperServer();
-		// TODO: use args for zookeeper setup and jdbc port
-		new Coordinator("localhost:" + Constants.ZK_PORT, Constants.JDBC_PORT)
-				.start();
+	public static void main(String[] args) throws JSAPException {
+
+		JSAP jsap = new JSAP();
+
+		jsap.registerParameter(new FlaggedOption("zkhost").setShortFlag('z')
+				.setLongFlag("zookeeper-hostname")
+				.setStringParser(JSAP.INETADDRESS_PARSER).setRequired(false)
+				.setDefault("localhost")
+				.setHelp("Hostname of Zookeeper server to connect to"));
+
+		jsap.registerParameter(new FlaggedOption("zkport").setShortFlag('p')
+				.setLongFlag("zookeeper-port")
+				.setStringParser(JSAP.INTEGER_PARSER).setRequired(false)
+				.setDefault(Integer.toString(Constants.ZK_PORT))
+				.setHelp("Portnumber of Zookeeper server to connect to"));
+
+		jsap.registerParameter(new FlaggedOption("jdbcport").setShortFlag('j')
+				.setLongFlag("jdbc-port").setStringParser(JSAP.INTEGER_PARSER)
+				.setRequired(false)
+				.setDefault(Integer.toString(Constants.JDBC_PORT))
+				.setHelp("TCP port number for the JDBC server to listen on"));
+
+		jsap.registerParameter(new FlaggedOption("zkinternal")
+				.setShortFlag('i')
+				.setLongFlag("zookeeper-internal")
+				.setStringParser(JSAP.BOOLEAN_PARSER)
+				.setRequired(false)
+				.setDefault("true")
+				.setHelp(
+						"Whether or not to start the built-in Zookeeper server"));
+
+		JSAPResult res = jsap.parse(args);
+
+		if (!res.success()) {
+			@SuppressWarnings("rawtypes")
+			Iterator errs = res.getErrorMessageIterator();
+			while (errs.hasNext()) {
+				System.err.println(errs.next());
+			}
+
+			System.err.println("Usage: " + jsap.getUsage() + "\nParameters: "
+					+ jsap.getHelp());
+			System.exit(-1);
+		}
+
+		if (res.getBoolean("zkinternal")) {
+			log.info("Starting internal Zookeeper server on port "
+					+ res.getInt("zkport"));
+			startInternalZookeeperServer(res.getInt("zkport"));
+		}
+		new Coordinator(res.getInetAddress("zkhost").getHostAddress() + ":"
+				+ res.getInt("zkport"), res.getInt("jdbcport")).start();
+
 	}
 
-	public static void startInternalZookeeperServer() {
+	public static void startInternalZookeeperServer(int port) {
 		final ServerConfig config = new ServerConfig();
 		try {
-			config.parse(new String[] { Integer.toString(Constants.ZK_PORT),
+			config.parse(new String[] { Integer.toString(port),
 					createTempDirectory().getPath() });
 		} catch (IOException e1) {
 			log.warn(e1);

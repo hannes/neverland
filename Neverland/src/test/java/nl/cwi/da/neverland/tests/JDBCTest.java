@@ -19,6 +19,8 @@ import nl.cwi.da.neverland.internal.ResultCombiner;
 
 import org.junit.Test;
 
+import com.martiansoftware.jsap.JSAPException;
+
 public class JDBCTest {
 
 	@Test
@@ -28,14 +30,24 @@ public class JDBCTest {
 		// bring up coordinator
 		(new Thread() {
 			public void run() {
-				Coordinator.main(new String[0]);
+				try {
+					Coordinator.main(new String[0]);
+				} catch (JSAPException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 		}).start();
 
 		// bring up a worker
 		(new Thread() {
 			public void run() {
-				Worker.main(new String[0]);
+				try {
+					Worker.main(new String[0]);
+				} catch (JSAPException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 		}).start();
 

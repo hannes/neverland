@@ -1,0 +1,13 @@
+#!/bin/sh
+
+SCRIPT=$(readlink -f $0)
+SCRIPTPATH=$(dirname $SCRIPT)
+JAR=$SCRIPTPATH/../target/neverland.jar
+
+whitespace="[[:space:]]"
+C="java -cp $JAR nl.cwi.da.neverland.daemons.Worker"
+
+for i in "$@";do 
+    C="$C \"${i//\"/\\\"}\""
+done;
+sh -c "$C"
