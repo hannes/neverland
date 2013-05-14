@@ -7,18 +7,16 @@ import java.util.List;
 import javax.sql.RowSetMetaData;
 import javax.sql.rowset.RowSetMetaDataImpl;
 
-import com.sun.rowset.CachedRowSetImpl;
+import nl.cwi.da.neverland.internal.InternalResultSet;
 
-public class TestResultSet extends CachedRowSetImpl {
-	private static final long serialVersionUID = 1L;
+public class TestResultSet extends InternalResultSet {
 
 	public TestResultSet() throws SQLException {
 		super();
 	}
 	
 	public TestResultSet(TestResultSet dad) throws SQLException {
-		populate(dad);
-		dad.beforeFirst();
+		super(dad);
 		beforeFirst();
 	}
 

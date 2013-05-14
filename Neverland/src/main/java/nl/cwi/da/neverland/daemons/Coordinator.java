@@ -98,7 +98,7 @@ public class Coordinator extends Thread implements Watcher {
 				if (nodes.size() > 0) {
 					// now ask the first node to be alive for the table
 					// structure
-					log.info("Found first node, generating rewriter from its schema.");
+					log.debug("Found first node, generating rewriter from its schema.");
 					this.rewriter = Rewriter.constructRewriterFromDb(nodes
 							.get(0));
 					coordinatorState = Constants.CoordinatorState.normal;

@@ -63,7 +63,7 @@ public abstract class Rewriter {
 		Map<String, FactTable> factTables = new HashMap<String, FactTable>();
 
 		try {
-			log.info("Constructing rewriter from DB advertised by " + nn);
+			log.debug("Constructing rewriter from DB advertised by " + nn);
 			Class.forName(Constants.JDBC_DRIVER);
 			Connection c = DriverManager.getConnection(nn.getJdbcUrl(),
 					nn.getJdbcUser(), nn.getJdbcPass());

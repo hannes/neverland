@@ -58,7 +58,7 @@ public class InternalResultSet extends AbstractResultSet {
 		add(source);
 	}
 
-	private void setMetaData(ResultSetMetaData metaData) throws SQLException {
+	protected void setMetaData(ResultSetMetaData metaData) throws SQLException {
 		columns.clear();
 		for (int c = 1; c <= metaData.getColumnCount(); c++) {
 			InternalResultSetColumn cc = new InternalResultSetColumn(
