@@ -175,6 +175,11 @@ public abstract class Rewriter {
 		@Override
 		public List<Subquery> rewrite(Query q, int numSubqueries)
 				throws NeverlandException {
+
+			if (numSubqueries < 2) {
+				return new StupidRewriter().rewrite(q, 1);
+			}
+
 			if (!q.getTables().contains(factTableName)) {
 				log.warn("Could not find fact table " + factTableName + " in "
 						+ q.getSql());

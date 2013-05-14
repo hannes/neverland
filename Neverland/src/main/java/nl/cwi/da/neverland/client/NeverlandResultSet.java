@@ -41,7 +41,11 @@ public class NeverlandResultSet implements ResultSet {
 		stmt = s;
 		lines = response.split("\n");
 		if (lines.length < 2) {
-			throw new SQLException("Meh");
+			String reason = "Meh";
+			if (lines.length == 1 && lines[0].startsWith("!")) {
+				reason = "Server says: " + lines[0].substring(1);
+			}
+			throw new SQLException(reason);
 		}
 		columns = Arrays.asList(lines[0].toLowerCase().split("\t"));
 		types = Arrays.asList(lines[1].toLowerCase().split("\t"));

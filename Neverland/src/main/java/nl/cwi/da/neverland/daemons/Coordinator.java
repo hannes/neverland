@@ -240,7 +240,7 @@ public class Coordinator extends Thread implements Watcher {
 			String str = message.toString();
 			if (!str.startsWith(Constants.MAGIC_HEADER)) {
 				log.warn("No magic header in message, discarding.");
-				session.write("Use proper header");
+				session.write("!Use proper header");
 				session.close(true);
 				return;
 			}
@@ -254,6 +254,12 @@ public class Coordinator extends Thread implements Watcher {
 				Query q = new Query(sql);
 
 				List<NeverlandNode> nodes = coord.getCurrentNodes();
+				if (nodes.size() < 1) {
+					log.warn("No workers known, cannot continue");
+					session.write("!No worker nodes known, sorry");
+					session.close(false);
+					return;
+				}
 
 				List<Subquery> subqueries = coord.getRewriter().rewrite(q,
 						nodes.size());
