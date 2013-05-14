@@ -63,7 +63,7 @@ public abstract class Rewriter {
 		Map<String, FactTable> factTables = new HashMap<String, FactTable>();
 
 		try {
-
+			log.info("Constructing rewriter from DB advertised by " + nn);
 			Class.forName(Constants.JDBC_DRIVER);
 			Connection c = DriverManager.getConnection(nn.getJdbcUrl(),
 					nn.getJdbcUser(), nn.getJdbcPass());
@@ -150,7 +150,6 @@ public abstract class Rewriter {
 		private String factTableKey;
 		private long factTableKeyMin;
 		private long factTableKeyMax;
-		private int numSubqueries;
 
 		// TODO: move numSubqueries to rewrite()?
 		public NotSoStupidRewriter(FactTable ft) {
@@ -158,7 +157,6 @@ public abstract class Rewriter {
 			this.factTableKey = ft.keyColumn;
 			this.factTableKeyMin = ft.keyColMin;
 			this.factTableKeyMax = ft.keyColMax;
-			this.numSubqueries = numSubqueries;
 		}
 
 		public NotSoStupidRewriter(String factTable, String factTableKey,
@@ -167,7 +165,6 @@ public abstract class Rewriter {
 			this.factTableKey = factTableKey;
 			this.factTableKeyMin = factTableKeyMin;
 			this.factTableKeyMax = factTableKeyMax;
-			this.numSubqueries = numSubqueries;
 		}
 
 		private static Logger log = Logger.getLogger(NotSoStupidRewriter.class);

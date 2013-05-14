@@ -10,4 +10,7 @@ C="java -cp $JAR nl.cwi.da.neverland.client.NeverlandClient"
 for i in "$@";do 
     C="$C \"${i//\"/\\\"}\""
 done;
+
 sh -c "$C"
+
+

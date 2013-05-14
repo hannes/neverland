@@ -32,7 +32,6 @@ public class Worker extends Thread implements Watcher {
 			String jdbcPass) {
 		this.zookeeper = zooKeeper;
 		this.jdbcUri = jdbcUri;
-
 		// TODO: use and advertise JDBC credentials
 	}
 
@@ -44,6 +43,7 @@ public class Worker extends Thread implements Watcher {
 			log.warn(e);
 		}
 
+		log.info("Neverland worker daemon starting. Advertising JDBC URI " + jdbcUri + " ...");
 		while (workerState == Constants.WorkerState.initializing) {
 			try {
 				String thisNodeKey = Constants.ZK_PREFIX + "/"
@@ -56,7 +56,8 @@ public class Worker extends Thread implements Watcher {
 				workerState = Constants.WorkerState.normal;
 			} catch (Exception e) {
 				log.warn("Zookeeper not ready... retrying in "
-						+ Constants.ADVERTISE_DELAY_MS + " ms", e);
+						+ Constants.ADVERTISE_DELAY_MS + " ms");
+				log.debug(e);
 			}
 
 			// TODO: check JDBC connection(?)
@@ -73,6 +74,7 @@ public class Worker extends Thread implements Watcher {
 			try {
 				Thread.sleep(Constants.ADVERTISE_DELAY_MS);
 				// TODO: what to do here except keeping alive?
+				// Answer: re-advertise? Check ZK docs!
 			} catch (InterruptedException e) {
 				//
 			}

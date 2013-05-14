@@ -57,7 +57,6 @@ public class Coordinator extends Thread implements Watcher {
 	private Scheduler scheduler;
 
 	public Coordinator(String zooKeeper, int jdbcPort) {
-		log.info("Coordinator started with Zookeeper at " + zooKeeper);
 		this.zookeeper = zooKeeper;
 		this.jdbcPort = jdbcPort;
 
@@ -81,6 +80,7 @@ public class Coordinator extends Thread implements Watcher {
 		} catch (IOException e) {
 			log.warn(e);
 		}
+		log.info("Neverland coordinator daemon started with Zookeeper at " + zookeeper);
 
 		while (coordinatorState == Constants.CoordinatorState.initializing) {
 			try {
@@ -88,7 +88,7 @@ public class Coordinator extends Thread implements Watcher {
 				if (zkc.exists(Constants.ZK_PREFIX, this) == null) {
 					zkc.create(Constants.ZK_PREFIX, null, Ids.OPEN_ACL_UNSAFE,
 							CreateMode.PERSISTENT);
-					log.info("Successfully created ZK root node at at "
+					log.debug("Successfully created ZK root node at at "
 							+ Constants.ZK_PREFIX);
 				}
 				// now wait until at least one node appeared, generate the
@@ -198,6 +198,12 @@ public class Coordinator extends Thread implements Watcher {
 			log.info("Starting internal Zookeeper server on port "
 					+ res.getInt("zkport"));
 			startInternalZookeeperServer(res.getInt("zkport"));
+			// sleep a bit to allow ZK server to bind to its port (less exceptions)
+			try {
+				Thread.sleep(100);
+			} catch (InterruptedException e) {
+				// don't care
+			}
 		}
 		new Coordinator(res.getInetAddress("zkhost").getHostAddress() + ":"
 				+ res.getInt("zkport"), res.getInt("jdbcport")).start();
@@ -291,7 +297,7 @@ public class Coordinator extends Thread implements Watcher {
 			for (String n : nodes) {
 				String jdbc = new String(zkc.getData(Constants.ZK_PREFIX + "/"
 						+ n, false, null));
-				// TODO: get user/pass from zookeeper?
+				// TODO: get user/pass from zookeeper
 				NeverlandNode nn = new NeverlandNode(jdbc, "monetdb",
 						"monetdb", n);
 				nnodes.add(nn);

@@ -10,4 +10,10 @@ C="java -cp $JAR nl.cwi.da.neverland.daemons.Worker"
 for i in "$@";do 
     C="$C \"${i//\"/\\\"}\""
 done;
+
+if echo "$C" | grep --quiet "%hostname%" ; then
+	hn=`hostname`
+  	C=`echo "$C" | sed "s/%hostname%/$hn/"`
+fi
+
 sh -c "$C"
