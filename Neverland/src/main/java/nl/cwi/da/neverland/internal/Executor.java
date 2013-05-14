@@ -66,7 +66,7 @@ public abstract class Executor {
 
 			for (Entry<NeverlandNode, List<Subquery>> sentry : schedule
 					.entrySet()) {
-				NeverlandNode nn = sentry.getKey();
+				final NeverlandNode nn = sentry.getKey();
 
 				if (!dataSources.containsKey(nn.getId())) {
 					ComboPooledDataSource cpds = new ComboPooledDataSource();
@@ -107,7 +107,7 @@ public abstract class Executor {
 
 									try {
 										log.debug("Running " + sq + " on "
-												+ cpds.getJdbcUrl());
+												+ nn.getId());
 										c = cpds.getConnection();
 										s = c.createStatement();
 										rs = s.executeQuery(sq.getSql());
@@ -117,7 +117,7 @@ public abstract class Executor {
 										crs.beforeFirst();
 										
 										log.info("Got result on " + sq
-												+ " from " + cpds.getJdbcUrl());
+												+ " from " + nn.getId());
 									} catch (SQLException e) {
 										log.warn(e);
 										e.printStackTrace();

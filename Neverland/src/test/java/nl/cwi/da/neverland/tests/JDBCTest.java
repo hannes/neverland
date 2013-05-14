@@ -43,7 +43,8 @@ public class JDBCTest {
 		(new Thread() {
 			public void run() {
 				try {
-					Worker.main(new String[0]);
+					Worker.main(new String[] {"", "-j",
+							"\"jdbc:monetdb://localhost:50000/ssbm-sf1\"" });
 				} catch (JSAPException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();

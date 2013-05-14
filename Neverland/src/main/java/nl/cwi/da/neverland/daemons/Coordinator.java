@@ -67,7 +67,7 @@ public class Coordinator extends Thread implements Watcher {
 			log.fatal("JDBC driver not found on classpath", e);
 		}
 
-		this.scheduler = new Scheduler.StupidScheduler();
+		this.scheduler = new Scheduler.StickyScheduler();
 		this.executor = new Executor.MultiThreadedExecutor(100, 8);
 
 	}
@@ -252,9 +252,13 @@ public class Coordinator extends Thread implements Watcher {
 				String sql = str.substring(5);
 				log.info("QQ: " + sql);
 				Query q = new Query(sql);
-				List<Subquery> subqueries = coord.getRewriter().rewrite(q, 10);
+
+				List<NeverlandNode> nodes = coord.getCurrentNodes();
+
+				List<Subquery> subqueries = coord.getRewriter().rewrite(q,
+						nodes.size());
 				Scheduler.SubquerySchedule schedule = coord.getScheduler()
-						.schedule(coord.getCurrentNodes(), subqueries);
+						.schedule(nodes, subqueries);
 
 				List<ResultSet> resultSets = coord.getExecutor()
 						.executeSchedule(schedule);

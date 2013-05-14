@@ -1,7 +1,9 @@
 package nl.cwi.da.neverland.internal;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.TreeMap;
 
 public abstract class Scheduler {
 
@@ -20,7 +22,14 @@ public abstract class Scheduler {
 
 		public long getTimeoutMs() {
 			// TODO : fixme
-			return 60*1000;
+			return 60 * 1000;
+		}
+
+		public void schedule(NeverlandNode n, Subquery q) {
+			if (!containsKey(n)) {
+				put(n, new ArrayList<Subquery>());
+			}
+			get(n).add(q);
 		}
 	}
 
@@ -48,5 +57,42 @@ public abstract class Scheduler {
 			schedule.put(n1, subqueries);
 			return schedule;
 		}
+	}
+
+	public static class RoundRobinScheduler extends Scheduler {
+
+		@Override
+		public SubquerySchedule schedule(List<NeverlandNode> nodes,
+				List<Subquery> subqueries) throws NeverlandException {
+			SubquerySchedule schedule = new SubquerySchedule(subqueries.get(0)
+					.getParent());
+
+			int ni = 0;
+			for (Subquery sq : subqueries) {
+				schedule.schedule(nodes.get(ni), sq);
+				ni++;
+				if (ni >= nodes.size()) {
+					ni = 0;
+				}
+			}
+			return schedule;
+		}
+
+	}
+
+	public static class StickyScheduler extends Scheduler {
+
+		@Override
+		public SubquerySchedule schedule(List<NeverlandNode> nodes,
+				List<Subquery> subqueries) throws NeverlandException {
+			SubquerySchedule schedule = new SubquerySchedule(subqueries.get(0)
+					.getParent());
+			for (Subquery sq : subqueries) {
+				int node = sq.getSlice() % nodes.size();
+				schedule.schedule(nodes.get(node), sq);
+			}
+			return schedule;
+		}
+
 	}
 }
