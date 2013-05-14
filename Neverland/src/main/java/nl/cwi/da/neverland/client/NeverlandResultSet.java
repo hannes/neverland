@@ -40,7 +40,9 @@ public class NeverlandResultSet implements ResultSet {
 	public NeverlandResultSet(Statement s, String response) throws SQLException {
 		stmt = s;
 		lines = response.split("\n");
-
+		if (lines.length < 2) {
+			throw new SQLException("Meh");
+		}
 		columns = Arrays.asList(lines[0].toLowerCase().split("\t"));
 		types = Arrays.asList(lines[1].toLowerCase().split("\t"));
 
@@ -369,7 +371,7 @@ public class NeverlandResultSet implements ResultSet {
 
 	@Override
 	public Object getObject(int columnIndex) throws SQLException {
-		throw new SQLException("Unsupported, no objects");
+		return getData(columnIndex);
 	}
 
 	@Override
@@ -385,7 +387,7 @@ public class NeverlandResultSet implements ResultSet {
 
 	@Override
 	public Object getObject(String columnLabel) throws SQLException {
-		throw new SQLException("Unsupported, no objects");
+		return getObject(findColumn(columnLabel));
 	}
 
 	@Override

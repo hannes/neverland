@@ -1,6 +1,12 @@
 package nl.cwi.da.neverland.internal;
 
 public class NeverlandNode {
+	@Override
+	public String toString() {
+		return "NeverlandNode [sessionId=" + sessionId + ", jdbcUrl=" + jdbcUrl
+				+ ", jdbcUser=" + jdbcUser + ", jdbcPass=" + jdbcPass + "]";
+	}
+
 	private String jdbcUrl;
 	private String jdbcUser;
 	private String jdbcPass;

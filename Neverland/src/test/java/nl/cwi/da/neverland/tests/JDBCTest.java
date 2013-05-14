@@ -20,6 +20,7 @@ import nl.cwi.da.neverland.internal.ResultCombiner;
 import org.junit.Test;
 
 public class JDBCTest {
+
 	@Test
 	public void testConnection() throws InterruptedException,
 			ClassNotFoundException, SQLException {

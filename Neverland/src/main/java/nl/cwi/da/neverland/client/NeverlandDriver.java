@@ -34,7 +34,7 @@ public class NeverlandDriver implements Driver {
 		if (!acceptsURL(url)) {
 			throw new SQLException("Unsupported URL " + url);
 		}
-		log.info("Connecting to " + url);
+		log.debug("Connecting to " + url);
 		try {
 			URI u = new URI(url.substring(5));
 			@SuppressWarnings("resource")

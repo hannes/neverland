@@ -36,7 +36,7 @@ public class CombinerTest {
 	public void ssbmIntegrationTest() throws NeverlandException, SQLException,
 			InterruptedException {
 		Rewriter rw = new NotSoStupidRewriter("lineorder", "lo_orderkey", 0,
-				60000, 10);
+				60000);
 
 		for (Entry<String, String> e : SSBM.QUERIES.entrySet()) {
 			System.out.println(e.getKey());
@@ -44,7 +44,7 @@ public class CombinerTest {
 			Scheduler.SubquerySchedule schedule = new StupidScheduler()
 					.schedule(Arrays.asList(new NeverlandNode(
 							"jdbc:monetdb://localhost:50000/ssbm-sf1",
-							"monetdb", "monetdb", "42")), rw.rewrite(q));
+							"monetdb", "monetdb", "42")), rw.rewrite(q, 10));
 
 			List<ResultSet> rss = new MultiThreadedExecutor(10, 2)
 					.executeSchedule(schedule);
@@ -68,8 +68,8 @@ public class CombinerTest {
 		return Arrays.asList(a);
 	}
 
-	// @Ignore
 	// we like the performance so far...
+	@Ignore
 	@Test
 	public void performanceTest() throws SQLException, NeverlandException {
 		int datasize = 100000;

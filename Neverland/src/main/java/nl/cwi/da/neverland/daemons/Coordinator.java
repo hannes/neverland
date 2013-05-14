@@ -21,7 +21,6 @@ import nl.cwi.da.neverland.internal.ResultCombiner;
 import nl.cwi.da.neverland.internal.Rewriter;
 import nl.cwi.da.neverland.internal.Scheduler;
 import nl.cwi.da.neverland.internal.Subquery;
-import nl.cwi.da.neverland.internal.Rewriter.NotSoStupidRewriter;
 
 import org.apache.log4j.Logger;
 import org.apache.mina.core.service.IoAcceptor;
@@ -62,18 +61,12 @@ public class Coordinator extends Thread implements Watcher {
 			log.fatal("JDBC driver not found on classpath", e);
 		}
 
-		// this.rewriter = new Rewriter.StupidRewriter();
-		// TODO: make this configurable or even auto-discover
-		this.rewriter = new NotSoStupidRewriter("lineorder", "lo_orderkey", 0,
-				60000, 99);
 		this.scheduler = new Scheduler.StupidScheduler();
 		this.executor = new Executor.MultiThreadedExecutor(100, 8);
 
 	}
 
 	private Constants.CoordinatorState coordinatorState = Constants.CoordinatorState.initializing;
-
-	private List<NeverlandNode> nodes = new ArrayList<NeverlandNode>();
 
 	@Override
 	public void run() {
@@ -89,11 +82,21 @@ public class Coordinator extends Thread implements Watcher {
 				if (zkc.exists(Constants.ZK_PREFIX, this) == null) {
 					zkc.create(Constants.ZK_PREFIX, null, Ids.OPEN_ACL_UNSAFE,
 							CreateMode.PERSISTENT);
+					log.info("Successfully created ZK root node at at "
+							+ Constants.ZK_PREFIX);
 				}
+				// now wait until at least one node appeared, generate the
+				// rewriter etc.
 
-				log.info("Successfully created root node at at "
-						+ Constants.ZK_PREFIX);
-				coordinatorState = Constants.CoordinatorState.normal;
+				List<NeverlandNode> nodes = getCurrentNodes();
+				if (nodes.size() > 0) {
+					// now ask the first node to be alive for the table
+					// structure
+					log.info("Found first node, generating rewriter from its schema.");
+					this.rewriter = Rewriter.constructRewriterFromDb(nodes
+							.get(0));
+					coordinatorState = Constants.CoordinatorState.normal;
+				}
 			} catch (Exception e) {
 				log.warn("Zookeeper not ready... retrying in "
 						+ Constants.ADVERTISE_DELAY_MS + " ms", e);
@@ -119,39 +122,20 @@ public class Coordinator extends Thread implements Watcher {
 		acceptor.getSessionConfig().setIdleTime(IdleStatus.BOTH_IDLE, 10);
 		try {
 			acceptor.bind(new InetSocketAddress(jdbcPort));
+			log.info("JDBC server ready at port " + jdbcPort);
 		} catch (IOException e1) {
 			log.warn("Unable to open JDBC server at port " + jdbcPort, e1);
 		}
 
 		while (coordinatorState == Constants.CoordinatorState.normal) {
-			try {
-				List<NeverlandNode> nnodes = new ArrayList<NeverlandNode>();
-				List<String> nodes = zkc.getChildren(Constants.ZK_PREFIX, this);
-				log.info("Found " + nodes.size() + " advertised nodes in "
-						+ Constants.ZK_PREFIX);
-
-				for (String n : nodes) {
-					String jdbc = new String(zkc.getData(Constants.ZK_PREFIX
-							+ "/" + n, false, null));
-					// TODO: get user/pass from zookeeper?
-					NeverlandNode nn = new NeverlandNode(jdbc, "monetdb",
-							"monetdb", n);
-					nnodes.add(nn);
-				}
-				this.nodes = nnodes;
-
-			} catch (Exception e) {
-				log.warn("Zookeeper not ready... retrying in "
-						+ Constants.POLL_DELAY_MS + " ms", e);
-			}
-
+			List<NeverlandNode> nnodes = getCurrentNodes();
+			// TODO: do sth here
 			try {
 				Thread.sleep(Constants.POLL_DELAY_MS);
 			} catch (InterruptedException e) {
 				// ignore this.
 			}
 		}
-
 	}
 
 	@Override
@@ -215,13 +199,13 @@ public class Coordinator extends Thread implements Watcher {
 				String sql = str.substring(5);
 				log.info("QQ: " + sql);
 				Query q = new Query(sql);
-				List<Subquery> subqueries = coord.getRewriter().rewrite(q);
+				List<Subquery> subqueries = coord.getRewriter().rewrite(q, 10);
 				Scheduler.SubquerySchedule schedule = coord.getScheduler()
 						.schedule(coord.getCurrentNodes(), subqueries);
 
 				List<ResultSet> resultSets = coord.getExecutor()
 						.executeSchedule(schedule);
-				ResultCombiner rc = new ResultCombiner.ConcatResultCombiner();
+				ResultCombiner rc = new ResultCombiner.SmartResultCombiner();
 				ResultSet aggrSet = rc.combine(schedule.getQuery(), resultSets);
 				Coordinator.serializeResultSet(aggrSet, session);
 				session.close(false);
@@ -236,7 +220,23 @@ public class Coordinator extends Thread implements Watcher {
 	// avoid race conditions by not allowing outsiders write access to the node
 	// list
 	public List<NeverlandNode> getCurrentNodes() {
-		return Collections.unmodifiableList(nodes);
+
+		List<NeverlandNode> nnodes = new ArrayList<NeverlandNode>();
+
+		try {
+			List<String> nodes = zkc.getChildren(Constants.ZK_PREFIX, this);
+			for (String n : nodes) {
+				String jdbc = new String(zkc.getData(Constants.ZK_PREFIX + "/"
+						+ n, false, null));
+				// TODO: get user/pass from zookeeper?
+				NeverlandNode nn = new NeverlandNode(jdbc, "monetdb",
+						"monetdb", n);
+				nnodes.add(nn);
+			}
+		} catch (Exception e) {
+			log.warn(e);
+		}
+		return Collections.unmodifiableList(nnodes);
 	}
 
 	public static File createTempDirectory() throws IOException {

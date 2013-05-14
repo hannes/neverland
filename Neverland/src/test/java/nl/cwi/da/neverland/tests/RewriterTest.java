@@ -19,14 +19,14 @@ public class RewriterTest {
 
 	private static Logger log = Logger.getLogger(RewriterTest.class);
 	private Rewriter rw = new NotSoStupidRewriter("lineitem", "l_orderkey", 0,
-			60000, 6);
+			60000);
 
 	@Test
 	public void selectStarRewriterTest() throws NeverlandException {
 
 		Query q = new Query(
 				"SELECT SUM(l_extendedprice * l_discount) FROM lineitem");
-		List<Subquery> sqs = rw.rewrite(q);
+		List<Subquery> sqs = rw.rewrite(q, 6);
 
 		for (Subquery sq : sqs) {
 			log.info(sq);
@@ -40,7 +40,7 @@ public class RewriterTest {
 	public void limitOrderRewriterTest() throws NeverlandException {
 		Query q = new Query(
 				"SELECT SUM(l_extendedprice * l_discount) FROM lineitem ORDER BY foo LIMIT 100;");
-		List<Subquery> sqs = rw.rewrite(q);
+		List<Subquery> sqs = rw.rewrite(q, 6);
 		for (Subquery sq : sqs) {
 			log.info(sq);
 			assertEquals(q, sq.getParent());
@@ -56,7 +56,7 @@ public class RewriterTest {
 	public void existingRestrictionRewriterTest() throws NeverlandException {
 		Query q = new Query(
 				"SELECT SUM(l_extendedprice * l_discount) FROM lineitem where l_extendedprice > 42;");
-		List<Subquery> sqs = rw.rewrite(q);
+		List<Subquery> sqs = rw.rewrite(q, 6);
 		for (Subquery sq : sqs) {
 			log.info(sq);
 			assertEquals(q, sq.getParent());
@@ -67,11 +67,11 @@ public class RewriterTest {
 	@Test
 	public void ssbmRewriterTest() throws NeverlandException {
 		Rewriter rw = new NotSoStupidRewriter("lineorder", "lo_orderkey", 0,
-				60000, 6);
+				60000);
 		for (Entry<String, String> e : SSBM.QUERIES.entrySet()) {
 			log.info(e.getKey());
 			Query q = new Query(e.getValue());
-			List<Subquery> sqs = rw.rewrite(q);
+			List<Subquery> sqs = rw.rewrite(q, 6);
 			for (Subquery sq : sqs) {
 				log.info(sq);
 			}

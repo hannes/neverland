@@ -116,7 +116,7 @@ public abstract class Executor {
 
 										crs.beforeFirst();
 										
-										log.debug("Got result on " + sq
+										log.info("Got result on " + sq
 												+ " from " + cpds.getJdbcUrl());
 									} catch (SQLException e) {
 										log.warn(e);
