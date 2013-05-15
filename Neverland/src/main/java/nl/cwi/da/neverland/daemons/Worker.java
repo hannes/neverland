@@ -1,9 +1,17 @@
 package nl.cwi.da.neverland.daemons;
 
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.lang.management.OperatingSystemMXBean;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Iterator;
 
 import nl.cwi.da.neverland.internal.Constants;
+import nl.cwi.da.neverland.internal.NeverlandNode;
 
 import org.apache.log4j.Logger;
 import org.apache.zookeeper.CreateMode;
@@ -16,6 +24,7 @@ import com.martiansoftware.jsap.FlaggedOption;
 import com.martiansoftware.jsap.JSAP;
 import com.martiansoftware.jsap.JSAPException;
 import com.martiansoftware.jsap.JSAPResult;
+import com.mchange.v2.ser.SerializableUtils;
 
 public class Worker extends Thread implements Watcher {
 
@@ -28,11 +37,15 @@ public class Worker extends Thread implements Watcher {
 	private String jdbcUri;
 	private String zookeeper;
 
+	private String jdbcUser;
+	private String jdbcPass;
+
 	public Worker(String zooKeeper, String jdbcUri, String jdbcUser,
 			String jdbcPass) {
 		this.zookeeper = zooKeeper;
 		this.jdbcUri = jdbcUri;
-		// TODO: use and advertise JDBC credentials
+		this.jdbcUser = jdbcUser;
+		this.jdbcPass = jdbcPass;
 	}
 
 	@Override
@@ -43,25 +56,39 @@ public class Worker extends Thread implements Watcher {
 			log.warn(e);
 		}
 
-		log.info("Neverland worker daemon starting. Advertising JDBC URI " + jdbcUri + " ...");
+		log.info("Neverland worker daemon starting. Advertising JDBC URI "
+				+ jdbcUri + " ...");
+
+		NeverlandNode thisNode = new NeverlandNode(jdbcUri, jdbcUser, jdbcPass,
+				"", 0);
+
+		String thisNodeKey = "";
 		while (workerState == Constants.WorkerState.initializing) {
 			try {
-				String thisNodeKey = Constants.ZK_PREFIX + "/"
-						+ zkc.getSessionId();
+				Class.forName(Constants.JDBC_DRIVER);
+				Connection c = DriverManager.getConnection(jdbcUri, jdbcUser,
+						jdbcPass);
+				Statement s = c.createStatement();
+				ResultSet rs = s.executeQuery("SELECT 1");
+				if (!rs.next()) {
+					throw new SQLException("Wadde hadde dudde da?");
+				}
+				rs.close();
+				s.close();
+				c.close();
+				thisNodeKey = Constants.ZK_PREFIX + "/" + zkc.getSessionId();
 
-				zkc.create(thisNodeKey, jdbcUri.getBytes(),
+				zkc.create(thisNodeKey,
+						SerializableUtils.toByteArray(thisNode),
 						Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL);
 
 				log.info("Successfully advertised at " + thisNodeKey);
 				workerState = Constants.WorkerState.normal;
-			} catch (Exception e) {
-				log.warn("Zookeeper not ready... retrying in "
-						+ Constants.ADVERTISE_DELAY_MS + " ms");
-				log.debug(e);
-			}
 
-			// TODO: check JDBC connection(?)
-			// problem: we might not have the proper JDBC driver here...
+			} catch (Exception e) {
+				log.warn("Unable to advertise DB at " + jdbcUri + " to ZK at "
+						+ zookeeper, e);
+			}
 
 			try {
 				Thread.sleep(Constants.ADVERTISE_DELAY_MS);
@@ -70,20 +97,31 @@ public class Worker extends Thread implements Watcher {
 			}
 		}
 
+		final OperatingSystemMXBean myOsBean = ManagementFactory
+				.getOperatingSystemMXBean();
+
 		while (workerState == Constants.WorkerState.normal) {
+			thisNode.setLoad(myOsBean.getSystemLoadAverage());
+			try {
+
+				zkc.setData(thisNodeKey,
+						SerializableUtils.toByteArray(thisNode), -1);
+
+			} catch (Exception e) {
+				log.warn("ZK Error", e);
+			}
+
 			try {
 				Thread.sleep(Constants.ADVERTISE_DELAY_MS);
-				// TODO: what to do here except keeping alive?
-				// Answer: re-advertise? Check ZK docs!
 			} catch (InterruptedException e) {
-				//
+				// ignore this.
 			}
 		}
 	}
 
 	@Override
 	public void process(WatchedEvent event) {
-		// TODO: do we need this at all?
+		// not needed atm
 	}
 
 	public static void main(String[] args) throws JSAPException {

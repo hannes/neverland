@@ -44,6 +44,7 @@ import com.martiansoftware.jsap.FlaggedOption;
 import com.martiansoftware.jsap.JSAP;
 import com.martiansoftware.jsap.JSAPException;
 import com.martiansoftware.jsap.JSAPResult;
+import com.mchange.v2.ser.SerializableUtils;
 
 public class Coordinator extends Thread implements Watcher {
 	protected ZooKeeper zkc;
@@ -108,7 +109,7 @@ public class Coordinator extends Thread implements Watcher {
 				try {
 					this.rewriter = Rewriter.constructRewriterFromDb(nodes
 							.get(0));
-					
+
 					coordinatorState = Constants.CoordinatorState.normal;
 
 				} catch (NeverlandException e) {
@@ -298,18 +299,20 @@ public class Coordinator extends Thread implements Watcher {
 	// avoid race conditions by not allowing outsiders write access to the node
 	// list
 	public List<NeverlandNode> getCurrentNodes() {
-
 		List<NeverlandNode> nnodes = new ArrayList<NeverlandNode>();
 
 		try {
 			List<String> nodes = zkc.getChildren(Constants.ZK_PREFIX, this);
 			for (String n : nodes) {
-				String jdbc = new String(zkc.getData(Constants.ZK_PREFIX + "/"
-						+ n, false, null));
-				// TODO: get user/pass from zookeeper
-				NeverlandNode nn = new NeverlandNode(jdbc, "monetdb",
-						"monetdb", n);
-				nnodes.add(nn);
+				byte[] nodeser = zkc.getData(Constants.ZK_PREFIX + "/" + n,
+						false, null);
+				try {
+					NeverlandNode nn = (NeverlandNode) SerializableUtils
+							.fromByteArray(nodeser);
+					nnodes.add(nn);
+				} catch (Exception e) {
+					log.warn("Failed to unserialize node", e);
+				}
 			}
 		} catch (Exception e) {
 			log.warn(e);
