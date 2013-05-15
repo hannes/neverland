@@ -61,19 +61,17 @@ public abstract class Scheduler {
 
 	public static class RoundRobinScheduler extends Scheduler {
 
+		private int lastNodeIndex = 0;
+
 		@Override
 		public SubquerySchedule schedule(List<NeverlandNode> nodes,
 				List<Subquery> subqueries) throws NeverlandException {
 			SubquerySchedule schedule = new SubquerySchedule(subqueries.get(0)
 					.getParent());
 
-			int ni = 0;
 			for (Subquery sq : subqueries) {
-				schedule.schedule(nodes.get(ni), sq);
-				ni++;
-				if (ni >= nodes.size()) {
-					ni = 0;
-				}
+				lastNodeIndex = (lastNodeIndex + 1) % nodes.size();
+				schedule.schedule(nodes.get(lastNodeIndex), sq);
 			}
 			return schedule;
 		}
@@ -102,6 +100,24 @@ public abstract class Scheduler {
 			return schedule;
 		}
 
+	}
+
+	public static class RandomScheduler extends Scheduler {
+
+		private Random rnd = new Random();
+
+		@Override
+		public SubquerySchedule schedule(List<NeverlandNode> nodes,
+				List<Subquery> subqueries) throws NeverlandException {
+			SubquerySchedule schedule = new SubquerySchedule(subqueries.get(0)
+					.getParent());
+
+			for (Subquery sq : subqueries) {
+				NeverlandNode n1 = nodes.get(rnd.nextInt(nodes.size()));
+				schedule.schedule(n1, sq);
+			}
+			return schedule;
+		}
 	}
 
 	public static class StickyScheduler extends Scheduler {

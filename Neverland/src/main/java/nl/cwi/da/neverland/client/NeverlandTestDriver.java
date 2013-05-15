@@ -5,8 +5,10 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -23,6 +25,14 @@ import com.martiansoftware.jsap.JSAPException;
 import com.martiansoftware.jsap.JSAPResult;
 
 public class NeverlandTestDriver {
+
+	private static class ThreadResult {
+		private Map<String, StatisticalDescription> timings;
+		private double totalDuration;
+		private long queriesRun;
+		private double qps;
+	}
+
 	public static void main(String[] args) throws JSAPException {
 
 		JSAP jsap = new JSAP();
@@ -82,40 +92,55 @@ public class NeverlandTestDriver {
 		System.out.println(NeverlandTestDriver.class.getSimpleName() + " "
 				+ threads + " thread(s)");
 
-		List<Future<StatisticalDescription>> resultStats = new ArrayList<Future<StatisticalDescription>>();
+		List<Future<ThreadResult>> resultStats = new ArrayList<Future<ThreadResult>>();
 
 		ExecutorService executorService = Executors.newFixedThreadPool(res
 				.getInt("threads"));
 
 		for (int i = 0; i < threads; i++) {
 			resultStats.add(executorService
-					.submit(new Callable<StatisticalDescription>() {
+					.submit(new Callable<ThreadResult>() {
 						@Override
-						public StatisticalDescription call() throws Exception {
+						public ThreadResult call() throws Exception {
+							Map<String, StatisticalDescription> timings = new HashMap<String, StatisticalDescription>();
+
 							Connection c = DriverManager.getConnection(jdbc);
 							Statement s = c.createStatement();
-							StatisticalDescription d = new StatisticalDescription();
 							for (int i = 0; i < warmup; i++) {
 								for (Entry<String, String> e : SSBM.QUERIES
 										.entrySet()) {
-									executeQuery(e.getValue(), s);
+									double time = executeQuery(e.getValue(), s);
+									System.out.println(e.getKey() + ": " + time);
 								}
 							}
+							long start = System.currentTimeMillis();
+
 							for (int i = 0; i < runs; i++) {
 								System.out.println("Running test set "
 										+ (i + 1) + " of " + runs);
 								for (Entry<String, String> e : SSBM.QUERIES
 										.entrySet()) {
+									if (!timings.containsKey(e.getKey())) {
+										timings.put(e.getKey(),
+												new StatisticalDescription());
+									}
 									double time = executeQuery(e.getValue(), s);
-									d.addValue(time);
+									timings.get(e.getKey()).addValue(time);
 									System.out.println(e.getKey() + ": " + time);
 								}
 							}
 
 							s.close();
 							c.close();
-							d.calculate();
-							return d;
+
+							double durationSecs = (System.currentTimeMillis() - start) / 1000.0;
+
+							ThreadResult tr = new ThreadResult();
+							tr.queriesRun = runs * SSBM.QUERIES.size();
+							tr.totalDuration = durationSecs;
+							tr.timings = timings;
+							tr.qps = tr.queriesRun / tr.totalDuration;
+							return tr;
 						}
 
 						private double executeQuery(String query, Statement s)
@@ -130,19 +155,16 @@ public class NeverlandTestDriver {
 
 		StatisticalDescription results = new StatisticalDescription();
 		executorService.shutdown();
-		for (Future<StatisticalDescription> rf : resultStats) {
+		for (Future<ThreadResult> rf : resultStats) {
 			try {
-				StatisticalDescription d = rf.get();
-				results.merge(d);
+				ThreadResult d = rf.get();
+				System.out.println(d.qps);
+				// TODO: aggregate query timings
 
 			} catch (Exception e) {
 				e.printStackTrace(System.err);
 			}
 		}
-
-		System.out.println(results.sum);
-		System.out
-				.println((runs * SSBM.QUERIES.size() * threads) / results.sum);
 
 	}
 }

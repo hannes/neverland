@@ -64,7 +64,7 @@ public class Coordinator extends Thread implements Watcher {
 	private ResultCombiner combiner;
 
 	public static enum NeverlandScenario {
-		baseline, loadbalance, rewriter, rewriteload, neverland;
+		baseline, loadbalance, rewriteround, rewriterandom, rewriteload, neverland;
 	}
 
 	public Coordinator(NeverlandScenario scenario, String zooKeeper,
@@ -94,7 +94,6 @@ public class Coordinator extends Thread implements Watcher {
 		log.info("Neverland coordinator daemon started with Zookeeper at "
 				+ zookeeper);
 
-		
 		// setup neverland according to scenario
 		switch (scenario) {
 		case baseline:
@@ -109,9 +108,15 @@ public class Coordinator extends Thread implements Watcher {
 			this.combiner = new ResultCombiner.PassthruCombiner();
 			break;
 
-		case rewriter:
+		case rewriteround:
 			this.rewriter = null; // will be filled later
 			this.scheduler = new Scheduler.RoundRobinScheduler();
+			this.combiner = new ResultCombiner.SmartResultCombiner();
+			break;
+
+		case rewriterandom:
+			this.rewriter = null; // will be filled later
+			this.scheduler = new Scheduler.RandomScheduler();
 			this.combiner = new ResultCombiner.SmartResultCombiner();
 			break;
 
@@ -367,7 +372,7 @@ public class Coordinator extends Thread implements Watcher {
 
 	// avoid race conditions by not allowing outsiders write access to the node
 	// list
-	
+
 	// TODO: cache node list for some time to avoid reading ZK all the time...
 	public List<NeverlandNode> getCurrentNodes() {
 		List<NeverlandNode> nnodes = new ArrayList<NeverlandNode>();
