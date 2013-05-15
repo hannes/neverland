@@ -16,6 +16,7 @@ import java.util.Map;
 
 import nl.cwi.da.neverland.internal.Constants;
 import nl.cwi.da.neverland.internal.Executor;
+import nl.cwi.da.neverland.internal.NeverlandException;
 import nl.cwi.da.neverland.internal.NeverlandNode;
 import nl.cwi.da.neverland.internal.Query;
 import nl.cwi.da.neverland.internal.ResultCombiner;
@@ -80,7 +81,8 @@ public class Coordinator extends Thread implements Watcher {
 		} catch (IOException e) {
 			log.warn(e);
 		}
-		log.info("Neverland coordinator daemon started with Zookeeper at " + zookeeper);
+		log.info("Neverland coordinator daemon started with Zookeeper at "
+				+ zookeeper);
 
 		while (coordinatorState == Constants.CoordinatorState.initializing) {
 			try {
@@ -91,21 +93,27 @@ public class Coordinator extends Thread implements Watcher {
 					log.debug("Successfully created ZK root node at at "
 							+ Constants.ZK_PREFIX);
 				}
-				// now wait until at least one node appeared, generate the
-				// rewriter etc.
-
-				List<NeverlandNode> nodes = getCurrentNodes();
-				if (nodes.size() > 0) {
-					// now ask the first node to be alive for the table
-					// structure
-					log.debug("Found first node, generating rewriter from its schema.");
-					this.rewriter = Rewriter.constructRewriterFromDb(nodes
-							.get(0));
-					coordinatorState = Constants.CoordinatorState.normal;
-				}
 			} catch (Exception e) {
 				log.warn("Zookeeper not ready... retrying in "
 						+ Constants.ADVERTISE_DELAY_MS + " ms", e);
+			}
+			// now wait until at least one node appeared, generate the
+			// rewriter etc.
+
+			List<NeverlandNode> nodes = getCurrentNodes();
+			if (nodes.size() > 0) {
+				// now ask the first node to be alive for the table
+				// structure
+				log.debug("Found first node, generating rewriter from its schema.");
+				try {
+					this.rewriter = Rewriter.constructRewriterFromDb(nodes
+							.get(0));
+					
+					coordinatorState = Constants.CoordinatorState.normal;
+
+				} catch (NeverlandException e) {
+					log.warn("Unable to initialize rewriter", e);
+				}
 			}
 
 			try {
@@ -198,9 +206,10 @@ public class Coordinator extends Thread implements Watcher {
 			log.info("Starting internal Zookeeper server on port "
 					+ res.getInt("zkport"));
 			startInternalZookeeperServer(res.getInt("zkport"));
-			// sleep a bit to allow ZK server to bind to its port (less exceptions)
+			// sleep a bit to allow ZK server to bind to its port (less
+			// exceptions)
 			try {
-				Thread.sleep(100);
+				Thread.sleep(500);
 			} catch (InterruptedException e) {
 				// don't care
 			}
