@@ -14,8 +14,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import nl.cwi.da.neverland.internal.Constants;
+import nl.cwi.da.neverland.internal.SSBM;
 import nl.cwi.da.neverland.internal.StatisticalDescription;
-import nl.cwi.da.neverland.tests.SSBM;
 
 import com.martiansoftware.jsap.FlaggedOption;
 import com.martiansoftware.jsap.JSAP;
@@ -127,7 +127,7 @@ public class NeverlandTestDriver {
 				results.merge(d);
 
 			} catch (Exception e) {
-				System.err.println(e);
+				e.printStackTrace(System.err);
 			}
 		}
 

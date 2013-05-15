@@ -16,6 +16,7 @@ import nl.cwi.da.neverland.client.NeverlandResultSet;
 import nl.cwi.da.neverland.daemons.Coordinator;
 import nl.cwi.da.neverland.daemons.Worker;
 import nl.cwi.da.neverland.internal.ResultCombiner;
+import nl.cwi.da.neverland.internal.SSBM;
 
 import org.junit.Test;
 

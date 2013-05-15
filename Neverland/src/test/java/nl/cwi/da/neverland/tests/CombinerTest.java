@@ -19,6 +19,7 @@ import nl.cwi.da.neverland.internal.NeverlandNode;
 import nl.cwi.da.neverland.internal.Query;
 import nl.cwi.da.neverland.internal.ResultCombiner;
 import nl.cwi.da.neverland.internal.Rewriter;
+import nl.cwi.da.neverland.internal.SSBM;
 import nl.cwi.da.neverland.internal.Rewriter.NotSoStupidRewriter;
 import nl.cwi.da.neverland.internal.Scheduler;
 import nl.cwi.da.neverland.internal.Scheduler.StupidScheduler;

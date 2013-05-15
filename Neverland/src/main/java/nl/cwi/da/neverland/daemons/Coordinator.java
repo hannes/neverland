@@ -354,7 +354,6 @@ public class Coordinator extends Thread implements Watcher {
 				ResultCombiner rc = coord.getCombiner();
 				ResultSet aggrSet = rc.combine(schedule.getQuery(), resultSets);
 				Coordinator.serializeResultSet(aggrSet, session);
-				session.close(false);
 			}
 		}
 	}

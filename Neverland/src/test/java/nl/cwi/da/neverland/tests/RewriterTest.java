@@ -9,6 +9,7 @@ import java.util.Map.Entry;
 import nl.cwi.da.neverland.internal.NeverlandException;
 import nl.cwi.da.neverland.internal.Query;
 import nl.cwi.da.neverland.internal.Rewriter;
+import nl.cwi.da.neverland.internal.SSBM;
 import nl.cwi.da.neverland.internal.Rewriter.NotSoStupidRewriter;
 import nl.cwi.da.neverland.internal.Subquery;
 

@@ -56,7 +56,7 @@ public class NeverlandConnection implements Connection {
 			} while (in.ready());
 		} catch (Exception e) {
 			log.warn("Communication error", e);
-		}		
+		}
 		return response;
 	}
 

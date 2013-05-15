@@ -1,4 +1,4 @@
-package nl.cwi.da.neverland.tests;
+package nl.cwi.da.neverland.internal;
 
 import java.util.HashMap;
 import java.util.Map;
