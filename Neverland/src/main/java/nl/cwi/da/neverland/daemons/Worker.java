@@ -109,6 +109,7 @@ public class Worker extends Thread implements Watcher {
 
 			} catch (Exception e) {
 				log.warn("ZK Error", e);
+				// TODO: go to initialization...
 			}
 
 			try {

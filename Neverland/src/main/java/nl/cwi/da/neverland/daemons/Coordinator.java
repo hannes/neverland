@@ -333,7 +333,7 @@ public class Coordinator extends Thread implements Watcher {
 			}
 			if (str.toUpperCase().startsWith("EXEC")) {
 				String sql = str.substring(5);
-				log.info("QQ: " + sql);
+				log.debug("QQ: " + sql);
 				Query q = new Query(sql);
 
 				List<NeverlandNode> nodes = coord.getCurrentNodes();
@@ -368,6 +368,8 @@ public class Coordinator extends Thread implements Watcher {
 
 	// avoid race conditions by not allowing outsiders write access to the node
 	// list
+	
+	// TODO: cache node list for some time to avoid reading ZK all the time...
 	public List<NeverlandNode> getCurrentNodes() {
 		List<NeverlandNode> nnodes = new ArrayList<NeverlandNode>();
 
@@ -466,7 +468,6 @@ public class Coordinator extends Thread implements Watcher {
 			}
 
 			session.write(result);
-			session.close(false);
 
 		} catch (SQLException e) {
 			log.warn(e);

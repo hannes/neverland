@@ -50,7 +50,7 @@ public class NeverlandTestDriver {
 
 		jsap.registerParameter(new FlaggedOption("runs").setShortFlag('r')
 				.setLongFlag("runs").setStringParser(JSAP.INTEGER_PARSER)
-				.setRequired(false).setDefault("10")
+				.setRequired(false).setDefault("1")
 				.setHelp("Number of test runs through the query set"));
 
 		JSAPResult res = jsap.parse(args);
@@ -77,13 +77,17 @@ public class NeverlandTestDriver {
 				+ res.getInt("port") + "/db";
 		final int warmup = res.getInt("warmup");
 		final int runs = res.getInt("runs");
+		final int threads = res.getInt("threads");
+
+		
+		System.out.println(NeverlandTestDriver.class.getSimpleName() + " " + threads + " thread(s)");
 
 		List<Future<StatisticalDescription>> resultStats = new ArrayList<Future<StatisticalDescription>>();
 
 		ExecutorService executorService = Executors.newFixedThreadPool(res
 				.getInt("threads"));
 
-		for (int i = 0; i < res.getInt("threads"); i++) {
+		for (int i = 0; i < threads; i++) {
 			resultStats.add(executorService
 					.submit(new Callable<StatisticalDescription>() {
 						@Override
@@ -121,6 +125,7 @@ public class NeverlandTestDriver {
 		}
 
 		StatisticalDescription results = new StatisticalDescription();
+		executorService.shutdown();
 		for (Future<StatisticalDescription> rf : resultStats) {
 			try {
 				StatisticalDescription d = rf.get();
@@ -130,9 +135,11 @@ public class NeverlandTestDriver {
 				e.printStackTrace(System.err);
 			}
 		}
-
-		System.out.println(results);
-		System.out.println(results.sum / (runs * SSBM.QUERIES.size()));
+		
+		
+		System.out.println(results.sum);
+		System.out.println((runs * SSBM.QUERIES.size()));
+		System.out.println( (runs * SSBM.QUERIES.size())/results.sum);
 
 	}
 }
