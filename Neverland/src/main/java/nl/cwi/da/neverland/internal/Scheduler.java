@@ -22,7 +22,7 @@ public abstract class Scheduler {
 
 		public long getTimeoutMs() {
 			// TODO : fixme
-			return 60 * 1000;
+			return 3600 * 1000;
 		}
 
 		public void schedule(NeverlandNode n, Subquery q) {
