@@ -115,7 +115,7 @@ public abstract class Executor {
 										crs = new InternalResultSet(rs);
 
 										crs.beforeFirst();
-										
+
 										log.info("Got result on " + sq
 												+ " from " + nn.getId());
 									} catch (SQLException e) {

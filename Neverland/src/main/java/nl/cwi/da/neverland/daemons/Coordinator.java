@@ -20,6 +20,7 @@ import nl.cwi.da.neverland.internal.NeverlandException;
 import nl.cwi.da.neverland.internal.NeverlandNode;
 import nl.cwi.da.neverland.internal.Query;
 import nl.cwi.da.neverland.internal.ResultCombiner;
+import nl.cwi.da.neverland.internal.ResultCombiner.PassthruCombiner;
 import nl.cwi.da.neverland.internal.Rewriter;
 import nl.cwi.da.neverland.internal.Scheduler;
 import nl.cwi.da.neverland.internal.Subquery;
@@ -44,6 +45,8 @@ import com.martiansoftware.jsap.FlaggedOption;
 import com.martiansoftware.jsap.JSAP;
 import com.martiansoftware.jsap.JSAPException;
 import com.martiansoftware.jsap.JSAPResult;
+import com.martiansoftware.jsap.ParseException;
+import com.martiansoftware.jsap.StringParser;
 import com.mchange.v2.ser.SerializableUtils;
 
 public class Coordinator extends Thread implements Watcher {
@@ -55,10 +58,18 @@ public class Coordinator extends Thread implements Watcher {
 	private int jdbcPort;
 
 	private Executor executor;
+	private NeverlandScenario scenario;
+
 	private Rewriter rewriter;
 	private Scheduler scheduler;
+	private ResultCombiner combiner;
 
-	public Coordinator(String zooKeeper, int jdbcPort) {
+	public static enum NeverlandScenario {
+		baseline, loadbalance, rewriter, rewriteload, neverland;
+	}
+
+	public Coordinator(NeverlandScenario scenario, String zooKeeper,
+			int jdbcPort) {
 		this.zookeeper = zooKeeper;
 		this.jdbcPort = jdbcPort;
 
@@ -68,9 +79,8 @@ public class Coordinator extends Thread implements Watcher {
 			log.fatal("JDBC driver not found on classpath", e);
 		}
 
-		this.scheduler = new Scheduler.StickyScheduler();
 		this.executor = new Executor.MultiThreadedExecutor(100, 8);
-
+		this.scenario = scenario;
 	}
 
 	private Constants.CoordinatorState coordinatorState = Constants.CoordinatorState.initializing;
@@ -84,6 +94,41 @@ public class Coordinator extends Thread implements Watcher {
 		}
 		log.info("Neverland coordinator daemon started with Zookeeper at "
 				+ zookeeper);
+
+		
+		// setup neverland according to scenario
+		switch (scenario) {
+		case baseline:
+			this.rewriter = new Rewriter.StupidRewriter();
+			this.scheduler = new Scheduler.RoundRobinScheduler();
+			this.combiner = new ResultCombiner.PassthruCombiner();
+			break;
+
+		case loadbalance:
+			this.rewriter = new Rewriter.StupidRewriter();
+			this.scheduler = new Scheduler.LoadBalancingScheduler();
+			this.combiner = new ResultCombiner.PassthruCombiner();
+			break;
+
+		case rewriter:
+			this.rewriter = null; // will be filled later
+			this.scheduler = new Scheduler.RoundRobinScheduler();
+			this.combiner = new ResultCombiner.SmartResultCombiner();
+			break;
+
+		case rewriteload:
+			this.rewriter = null; // will be filled later
+			this.scheduler = new Scheduler.LoadBalancingScheduler();
+			this.combiner = new ResultCombiner.SmartResultCombiner();
+			break;
+
+		case neverland:
+			this.rewriter = null; // will be filled later
+			this.scheduler = new Scheduler.StickyScheduler();
+			this.combiner = new ResultCombiner.SmartResultCombiner();
+			break;
+		}
+		this.scheduler = new Scheduler.StickyScheduler();
 
 		while (coordinatorState == Constants.CoordinatorState.initializing) {
 			try {
@@ -105,10 +150,11 @@ public class Coordinator extends Thread implements Watcher {
 			if (nodes.size() > 0) {
 				// now ask the first node to be alive for the table
 				// structure
-				log.debug("Found first node, generating rewriter from its schema.");
 				try {
-					this.rewriter = Rewriter.constructRewriterFromDb(nodes
-							.get(0));
+					if (this.rewriter == null) {
+						this.rewriter = Rewriter.constructRewriterFromDb(nodes
+								.get(0));
+					}
 
 					coordinatorState = Constants.CoordinatorState.normal;
 
@@ -158,6 +204,18 @@ public class Coordinator extends Thread implements Watcher {
 		// maybe if we want to react if a node goes down
 	}
 
+	public static class NeverlandScenarioParser extends StringParser {
+
+		@Override
+		public Object parse(String arg0) throws ParseException {
+			try {
+				return NeverlandScenario.valueOf(arg0.trim().toLowerCase());
+			} catch (IllegalArgumentException iae) {
+				throw new ParseException(iae);
+			}
+		}
+	}
+
 	public static void main(String[] args) throws JSAPException {
 
 		JSAP jsap = new JSAP();
@@ -179,6 +237,12 @@ public class Coordinator extends Thread implements Watcher {
 				.setRequired(false)
 				.setDefault(Integer.toString(Constants.JDBC_PORT))
 				.setHelp("TCP port number for the JDBC server to listen on"));
+
+		jsap.registerParameter(new FlaggedOption("scenario").setShortFlag('s')
+				.setLongFlag("neverland-scenario")
+				.setStringParser(new NeverlandScenarioParser())
+				.setRequired(false).setDefault("neverland")
+				.setHelp("Neverland scenario to run (internal)"));
 
 		jsap.registerParameter(new FlaggedOption("zkinternal")
 				.setShortFlag('i')
@@ -203,6 +267,9 @@ public class Coordinator extends Thread implements Watcher {
 			System.exit(-1);
 		}
 
+		NeverlandScenario scenario = (NeverlandScenario) res
+				.getObject("scenario");
+
 		if (res.getBoolean("zkinternal")) {
 			log.info("Starting internal Zookeeper server on port "
 					+ res.getInt("zkport"));
@@ -215,8 +282,8 @@ public class Coordinator extends Thread implements Watcher {
 				// don't care
 			}
 		}
-		new Coordinator(res.getInetAddress("zkhost").getHostAddress() + ":"
-				+ res.getInt("zkport"), res.getInt("jdbcport")).start();
+		new Coordinator(scenario, res.getInetAddress("zkhost").getHostAddress()
+				+ ":" + res.getInt("zkport"), res.getInt("jdbcport")).start();
 
 	}
 
@@ -284,7 +351,7 @@ public class Coordinator extends Thread implements Watcher {
 
 				List<ResultSet> resultSets = coord.getExecutor()
 						.executeSchedule(schedule);
-				ResultCombiner rc = new ResultCombiner.SmartResultCombiner();
+				ResultCombiner rc = coord.getCombiner();
 				ResultSet aggrSet = rc.combine(schedule.getQuery(), resultSets);
 				Coordinator.serializeResultSet(aggrSet, session);
 				session.close(false);
@@ -294,6 +361,10 @@ public class Coordinator extends Thread implements Watcher {
 
 	protected void handle(String line) {
 		log.info(line);
+	}
+
+	public ResultCombiner getCombiner() {
+		return combiner;
 	}
 
 	// avoid race conditions by not allowing outsiders write access to the node

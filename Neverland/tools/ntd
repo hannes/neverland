@@ -1,0 +1,17 @@
+#!/bin/sh
+
+SCRIPT=$(readlink -f $0)
+SCRIPTPATH=$(dirname $SCRIPT)
+JAR=$SCRIPTPATH/../target/neverland.jar
+JAVA_OPTS="-Djava.net.preferIPv4Stack=true -Xmx1G"
+
+whitespace="[[:space:]]"
+C="java $JAVA_OPTS -cp $JAR nl.cwi.da.neverland.client.NeverlandTestDriver"
+
+for i in "$@";do 
+    C="$C \"${i//\"/\\\"}\""
+done;
+
+sh -c "$C"
+
+

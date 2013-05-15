@@ -295,6 +295,18 @@ public abstract class ResultCombiner {
 		}
 	}
 
+	public static class PassthruCombiner extends ResultCombiner {
+
+		@Override
+		public ResultSet combine(Query q, List<ResultSet> sets)
+				throws NeverlandException {
+			if (sets.size() != 1) {
+				throw new NeverlandException("Need exactly one result set");
+			}
+			return sets.get(0);
+		}
+	}
+
 	public static String getSchema(String tableName, ResultSet rs)
 			throws SQLException {
 		ResultSetMetaData rsmd = rs.getMetaData();

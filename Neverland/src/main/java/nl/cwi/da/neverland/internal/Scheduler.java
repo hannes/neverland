@@ -3,7 +3,7 @@ package nl.cwi.da.neverland.internal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.TreeMap;
+import java.util.Random;
 
 public abstract class Scheduler {
 
@@ -73,6 +73,30 @@ public abstract class Scheduler {
 				ni++;
 				if (ni >= nodes.size()) {
 					ni = 0;
+				}
+			}
+			return schedule;
+		}
+
+	}
+
+	public static class LoadBalancingScheduler extends Scheduler {
+
+		private Random rnd = new Random();
+
+		@Override
+		public SubquerySchedule schedule(List<NeverlandNode> nodes,
+				List<Subquery> subqueries) throws NeverlandException {
+			SubquerySchedule schedule = new SubquerySchedule(subqueries.get(0)
+					.getParent());
+
+			for (Subquery sq : subqueries) {
+				NeverlandNode n1 = nodes.get(rnd.nextInt(nodes.size()));
+				NeverlandNode n2 = nodes.get(rnd.nextInt(nodes.size()));
+				if (n1.getLoad() < n2.getLoad()) {
+					schedule.schedule(n1, sq);
+				} else {
+					schedule.schedule(n2, sq);
 				}
 			}
 			return schedule;
