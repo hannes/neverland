@@ -60,7 +60,7 @@ public class Worker extends Thread implements Watcher {
 				+ jdbcUri + " ...");
 
 		NeverlandNode thisNode = new NeverlandNode(jdbcUri, jdbcUser, jdbcPass,
-				"", 0);
+				0, 0);
 
 		String thisNodeKey = "";
 		while (workerState == Constants.WorkerState.initializing) {
@@ -77,7 +77,7 @@ public class Worker extends Thread implements Watcher {
 				s.close();
 				c.close();
 				thisNodeKey = Constants.ZK_PREFIX + "/" + zkc.getSessionId();
-
+				thisNode.setId(zkc.getSessionId());
 				zkc.create(thisNodeKey,
 						SerializableUtils.toByteArray(thisNode),
 						Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL);

@@ -79,8 +79,8 @@ public class NeverlandTestDriver {
 		final int runs = res.getInt("runs");
 		final int threads = res.getInt("threads");
 
-		
-		System.out.println(NeverlandTestDriver.class.getSimpleName() + " " + threads + " thread(s)");
+		System.out.println(NeverlandTestDriver.class.getSimpleName() + " "
+				+ threads + " thread(s)");
 
 		List<Future<StatisticalDescription>> resultStats = new ArrayList<Future<StatisticalDescription>>();
 
@@ -102,9 +102,13 @@ public class NeverlandTestDriver {
 								}
 							}
 							for (int i = 0; i < runs; i++) {
+								System.out.println("Running test set "
+										+ (i + 1) + " of " + runs);
 								for (Entry<String, String> e : SSBM.QUERIES
 										.entrySet()) {
-									d.addValue(executeQuery(e.getValue(), s));
+									double time = executeQuery(e.getValue(), s);
+									d.addValue(time);
+									System.out.println(e.getKey() + ": " + time);
 								}
 							}
 
@@ -135,11 +139,10 @@ public class NeverlandTestDriver {
 				e.printStackTrace(System.err);
 			}
 		}
-		
-		
+
 		System.out.println(results.sum);
-		System.out.println((runs * SSBM.QUERIES.size()));
-		System.out.println( (runs * SSBM.QUERIES.size())/results.sum);
+		System.out
+				.println((runs * SSBM.QUERIES.size() * threads) / results.sum);
 
 	}
 }

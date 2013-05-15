@@ -29,7 +29,7 @@ public abstract class Executor {
 			Scheduler.SubquerySchedule schedule) throws NeverlandException;
 
 	public static class MultiThreadedExecutor extends Executor {
-		private Map<String, ComboPooledDataSource> dataSources = new HashMap<String, ComboPooledDataSource>();
+		private Map<Long, ComboPooledDataSource> dataSources = new HashMap<Long, ComboPooledDataSource>();
 		private static Logger log = Logger
 				.getLogger(MultiThreadedExecutor.class);
 
@@ -106,10 +106,10 @@ public abstract class Executor {
 									ResultSet rs = null;
 
 									try {
-										log.debug("Running " + sq + " on "
-												+ nn.getId());
 										c = cpds.getConnection();
 										s = c.createStatement();
+										log.info("Running " + sq + " on "
+												+ nn.getId());
 										rs = s.executeQuery(sq.getSql());
 
 										crs = new InternalResultSet(rs);
