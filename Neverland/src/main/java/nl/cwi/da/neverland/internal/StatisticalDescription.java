@@ -1,5 +1,6 @@
 package nl.cwi.da.neverland.internal;
 
+import java.text.DecimalFormat;
 import java.util.List;
 
 import org.apache.commons.math.stat.descriptive.DescriptiveStatistics;
@@ -11,6 +12,8 @@ public class StatisticalDescription {
 	public double median = 0;
 	public long count = 0;
 	public double sum = 0;
+
+	private DecimalFormat df = new DecimalFormat("#.##");
 
 	private DescriptiveStatistics stats = new DescriptiveStatistics();
 
@@ -55,7 +58,8 @@ public class StatisticalDescription {
 
 	@Override
 	public String toString() {
-		return "min=" + min + "\tmax=" + max + "\tmean=" + mean + "\tmedian="
-				+ median + "\tcount=" + count;
+		return "min=" + df.format(min) + "\tmax=" + df.format(max) + "\tmean="
+				+ df.format(mean) + "\tmedian=" + df.format(median)
+				+ "\tcount=" + df.format(count);
 	}
 }

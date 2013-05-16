@@ -10,6 +10,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.TreeMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -152,19 +153,35 @@ public class NeverlandTestDriver {
 					}));
 
 		}
-
-		StatisticalDescription results = new StatisticalDescription();
 		executorService.shutdown();
+
+		double totalQps = 0;
+		Map<String, StatisticalDescription> timings = new TreeMap<String, StatisticalDescription>();
+
 		for (Future<ThreadResult> rf : resultStats) {
 			try {
 				ThreadResult d = rf.get();
-				System.out.println(d.qps);
-				// TODO: aggregate query timings
+				for (Entry<String, String> e : SSBM.QUERIES.entrySet()) {
+					if (!timings.containsKey(e.getKey())) {
+						timings.put(e.getKey(), new StatisticalDescription());
+					}
+					timings.get(e.getKey()).merge(d.timings.get(e.getKey()));
+				}
+				totalQps += d.qps;
 
 			} catch (Exception e) {
 				e.printStackTrace(System.err);
 			}
+
 		}
+
+
+		for (Entry<String, StatisticalDescription> e : timings.entrySet()) {
+			System.out.println(e.getKey() + ":\t" + e.getValue());
+		}
+		
+		System.out.println("QPS: " + totalQps);
+
 
 	}
 }

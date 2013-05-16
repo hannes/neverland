@@ -3,6 +3,8 @@ package nl.cwi.da.neverland.daemons;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.OperatingSystemMXBean;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -59,8 +61,14 @@ public class Worker extends Thread implements Watcher {
 		log.info("Neverland worker daemon starting. Advertising JDBC URI "
 				+ jdbcUri + " ...");
 
-		NeverlandNode thisNode = new NeverlandNode(jdbcUri, jdbcUser, jdbcPass,
-				0, 0);
+		NeverlandNode thisNode = new NeverlandNode("localhost", 0, jdbcUri,
+				jdbcUser, jdbcPass, 0);
+
+		try {
+			thisNode.setHostname(InetAddress.getLocalHost().getHostName());
+		} catch (UnknownHostException e1) {
+			log.warn("Unable to get hostname");
+		}
 
 		String thisNodeKey = "";
 		while (workerState == Constants.WorkerState.initializing) {

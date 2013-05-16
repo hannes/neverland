@@ -14,6 +14,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
 import nl.cwi.da.neverland.internal.Constants;
 import nl.cwi.da.neverland.internal.Executor;
 import nl.cwi.da.neverland.internal.NeverlandException;
@@ -39,7 +44,17 @@ import org.apache.zookeeper.ZooDefs.Ids;
 import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.server.ServerConfig;
 import org.apache.zookeeper.server.ZooKeeperServerMain;
+import org.eclipse.jetty.server.Handler;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.handler.ContextHandler;
+import org.eclipse.jetty.server.handler.HandlerList;
+import org.eclipse.jetty.server.handler.ResourceHandler;
+import org.eclipse.jetty.server.nio.SelectChannelConnector;
+import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.servlet.ServletHolder;
 
+import com.google.gson.Gson;
+import com.google.gson.stream.JsonWriter;
 import com.martiansoftware.jsap.FlaggedOption;
 import com.martiansoftware.jsap.JSAP;
 import com.martiansoftware.jsap.JSAPException;
@@ -63,14 +78,17 @@ public class Coordinator extends Thread implements Watcher {
 	private Scheduler scheduler;
 	private ResultCombiner combiner;
 
+	private int httpPort;
+
 	public static enum NeverlandScenario {
 		baseline, loadbalance, rewriteround, rewriterandom, rewriteload, neverland;
 	}
 
 	public Coordinator(NeverlandScenario scenario, String zooKeeper,
-			int jdbcPort) {
+			int jdbcPort, int httpPort) {
 		this.zookeeper = zooKeeper;
 		this.jdbcPort = jdbcPort;
+		this.httpPort = httpPort;
 
 		try {
 			Class.forName(Constants.JDBC_DRIVER);
@@ -93,6 +111,8 @@ public class Coordinator extends Thread implements Watcher {
 		}
 		log.info("Neverland coordinator daemon started with Zookeeper at "
 				+ zookeeper);
+
+		startInternalWebserver(httpPort);
 
 		// setup neverland according to scenario
 		switch (scenario) {
@@ -242,6 +262,15 @@ public class Coordinator extends Thread implements Watcher {
 				.setDefault(Integer.toString(Constants.JDBC_PORT))
 				.setHelp("TCP port number for the JDBC server to listen on"));
 
+		jsap.registerParameter(new FlaggedOption("httpport")
+				.setShortFlag('m')
+				.setLongFlag("http-port")
+				.setStringParser(JSAP.INTEGER_PARSER)
+				.setRequired(false)
+				.setDefault(Integer.toString(Constants.MONITOR_PORT))
+				.setHelp(
+						"TCP port number for the HTTP monitoring server to listen on"));
+
 		jsap.registerParameter(new FlaggedOption("scenario").setShortFlag('s')
 				.setLongFlag("neverland-scenario")
 				.setStringParser(new NeverlandScenarioParser())
@@ -275,8 +304,6 @@ public class Coordinator extends Thread implements Watcher {
 				.getObject("scenario");
 
 		if (res.getBoolean("zkinternal")) {
-			log.info("Starting internal Zookeeper server on port "
-					+ res.getInt("zkport"));
 			startInternalZookeeperServer(res.getInt("zkport"));
 			// sleep a bit to allow ZK server to bind to its port (less
 			// exceptions)
@@ -287,11 +314,12 @@ public class Coordinator extends Thread implements Watcher {
 			}
 		}
 		new Coordinator(scenario, res.getInetAddress("zkhost").getHostAddress()
-				+ ":" + res.getInt("zkport"), res.getInt("jdbcport")).start();
+				+ ":" + res.getInt("zkport"), res.getInt("jdbcport"),
+				res.getInt("httpport")).start();
 
 	}
 
-	public static void startInternalZookeeperServer(int port) {
+	public static void startInternalZookeeperServer(final int port) {
 		final ServerConfig config = new ServerConfig();
 		try {
 			config.parse(new String[] { Integer.toString(port),
@@ -305,12 +333,69 @@ public class Coordinator extends Thread implements Watcher {
 				ZooKeeperServerMain zks = new ZooKeeperServerMain();
 				try {
 					zks.runFromConfig(config);
+					log.info("Started internal Zookeeper server on port "
+							+ port);
 				} catch (IOException e) {
 					log.fatal(e);
 					System.exit(-1);
 				}
 			}
 		}).start();
+	}
+
+	public static class DataServlet extends HttpServlet {
+
+		private Coordinator coord;
+		private Gson gson = new Gson();
+
+		public DataServlet(Coordinator coord) {
+			this.coord = coord;
+		}
+
+		private static final long serialVersionUID = 1L;
+
+		protected void doGet(HttpServletRequest req, HttpServletResponse resp)
+				throws ServletException, IOException {
+			resp.setContentType("application/json");
+			resp.getWriter().write(gson.toJson(coord.getCurrentNodes()));
+			
+			// TODO: add loads of other stuff
+		}
+	}
+
+	public void startInternalWebserver(int port) {
+		Server server = new Server();
+		SelectChannelConnector connector = new SelectChannelConnector();
+		connector.setPort(port);
+		server.addConnector(connector);
+
+		// static content.
+		ResourceHandler staticResourceHandler = new ResourceHandler();
+		staticResourceHandler.setResourceBase("./webapp/static/");
+		staticResourceHandler.setDirectoriesListed(true);
+		ContextHandler staticContextHandler = new ContextHandler();
+		staticContextHandler.setContextPath("/");
+		staticContextHandler.setHandler(staticResourceHandler);
+
+		ServletContextHandler servletContextHandler = new ServletContextHandler(
+				ServletContextHandler.SESSIONS);
+		servletContextHandler.setContextPath("/callback");
+		servletContextHandler.addServlet(new ServletHolder(
+				new DataServlet(this)), "/*");
+
+		HandlerList handlers = new HandlerList();
+		handlers.setHandlers(new Handler[] { staticContextHandler,
+				servletContextHandler });
+
+		// Add the handlers to the server and start jetty.
+		server.setHandler(handlers);
+		try {
+			server.start();
+			log.info("Started monitoring web server at port " + port);
+
+		} catch (Exception e) {
+			log.warn("Failed to start monitoring web server at port " + port, e);
+		}
 	}
 
 	private static class JdbcSocketHandler extends IoHandlerAdapter {

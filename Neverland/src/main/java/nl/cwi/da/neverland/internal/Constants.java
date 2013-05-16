@@ -19,5 +19,6 @@ public class Constants {
 	
 	public static final String MAGIC_HEADER = "dpfkg";
 	public static final String GROUP_NAME = "__neverland_groupcount";
+	public static final int MONITOR_PORT = 50003;
 
 }

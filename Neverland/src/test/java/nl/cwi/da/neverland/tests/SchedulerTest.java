@@ -41,7 +41,7 @@ public class SchedulerTest {
 	private List<NeverlandNode> makeNodeList(int size) {
 		List<NeverlandNode> l = new ArrayList<NeverlandNode>(size);
 		for (int i = 0; i < size; i++) {
-			l.add(new NeverlandNode("", "", "", i,0));
+			l.add(new NeverlandNode("n" + i, i, "", "", "", 0));
 		}
 		return l;
 	}

@@ -109,15 +109,16 @@ public abstract class Executor {
 										c = cpds.getConnection();
 										s = c.createStatement();
 										log.info("Running " + sq + " on "
-												+ nn.getId());
+												+ nn.getHostname());
 										rs = s.executeQuery(sq.getSql());
 
 										crs = new InternalResultSet(rs);
 
 										crs.beforeFirst();
 
-										log.info("Got result on " + sq
-												+ " from " + nn.getId());
+										log.info("Got result on "
+												+ sq.getSlice() + " from "
+												+ nn.getHostname());
 									} catch (SQLException e) {
 										log.warn(e);
 										e.printStackTrace();
