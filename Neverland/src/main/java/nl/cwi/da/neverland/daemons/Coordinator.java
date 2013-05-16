@@ -370,7 +370,7 @@ public class Coordinator extends Thread implements Watcher {
 
 		// static content.
 		ResourceHandler staticResourceHandler = new ResourceHandler();
-		staticResourceHandler.setResourceBase("./monitor/");
+		staticResourceHandler.setResourceBase("/src/main/resources/monitor");
 		staticResourceHandler.setDirectoriesListed(true);
 		ContextHandler staticContextHandler = new ContextHandler();
 		staticContextHandler.setContextPath("/");
