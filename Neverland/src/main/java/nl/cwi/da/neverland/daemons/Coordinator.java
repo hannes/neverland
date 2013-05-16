@@ -3,6 +3,8 @@ package nl.cwi.da.neverland.daemons;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.nio.charset.Charset;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -52,6 +54,7 @@ import org.eclipse.jetty.server.handler.ResourceHandler;
 import org.eclipse.jetty.server.nio.SelectChannelConnector;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.util.resource.Resource;
 
 import com.google.gson.Gson;
 import com.martiansoftware.jsap.FlaggedOption;
@@ -362,6 +365,31 @@ public class Coordinator extends Thread implements Watcher {
 		}
 	}
 
+	public static class JarResourceHandler extends ResourceHandler {
+		private String resPrefix = "";
+		private static Logger log = Logger.getLogger(JarResourceHandler.class);
+
+		@Override
+		public Resource getResource(String path) throws MalformedURLException {
+			if (path == null || !path.startsWith("/")) {
+				throw new MalformedURLException(path);
+			}
+			try {
+				return Resource.newResource(Coordinator.class.getClassLoader()
+						.getResource(resPrefix + path));
+			} catch (IOException e) {
+				log.warn(e);
+				return null;
+			}
+		}
+
+		@Override
+		public void setResourceBase(String base) {
+			resPrefix = base;
+		}
+
+	}
+
 	public void startInternalWebserver(int port) {
 		Server server = new Server();
 		SelectChannelConnector connector = new SelectChannelConnector();
@@ -369,9 +397,9 @@ public class Coordinator extends Thread implements Watcher {
 		server.addConnector(connector);
 
 		// static content.
-		ResourceHandler staticResourceHandler = new ResourceHandler();
-		staticResourceHandler.setResourceBase("/src/main/resources/monitor");
-		staticResourceHandler.setDirectoriesListed(true);
+		ResourceHandler staticResourceHandler = new JarResourceHandler();
+		staticResourceHandler.setResourceBase("monitor");
+
 		ContextHandler staticContextHandler = new ContextHandler();
 		staticContextHandler.setContextPath("/");
 		staticContextHandler.setHandler(staticResourceHandler);
