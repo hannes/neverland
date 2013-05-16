@@ -64,6 +64,8 @@ public abstract class Executor {
 			List<Future<ResultSet>> resultSetsFutures = new ArrayList<Future<ResultSet>>();
 			List<ResultSet> resultSets = new ArrayList<ResultSet>();
 
+			log.info("Running schedule for query " + schedule.getQuery());
+
 			for (Entry<NeverlandNode, List<Subquery>> sentry : schedule
 					.entrySet()) {
 				final NeverlandNode nn = sentry.getKey();
@@ -108,8 +110,6 @@ public abstract class Executor {
 									try {
 										c = cpds.getConnection();
 										s = c.createStatement();
-										log.info("Running " + sq + " on "
-												+ nn.getHostname());
 										rs = s.executeQuery(sq.getSql());
 
 										crs = new InternalResultSet(rs);
@@ -122,6 +122,9 @@ public abstract class Executor {
 									} catch (SQLException e) {
 										log.warn(e);
 										e.printStackTrace();
+										// TODO: recover from failed node,
+										// schedule subquery to someone else
+
 									} finally {
 										try {
 											rs.close();

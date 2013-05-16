@@ -85,7 +85,7 @@ public class Worker extends Thread implements Watcher {
 				s.close();
 				c.close();
 				thisNodeKey = Constants.ZK_PREFIX + "/" + zkc.getSessionId();
-				thisNode.setId(zkc.getSessionId());
+				
 				zkc.create(thisNodeKey,
 						SerializableUtils.toByteArray(thisNode),
 						Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL);
@@ -110,6 +110,7 @@ public class Worker extends Thread implements Watcher {
 
 		while (workerState == Constants.WorkerState.normal) {
 			thisNode.setLoad(myOsBean.getSystemLoadAverage());
+			thisNode.setId(zkc.getSessionId());
 			try {
 
 				zkc.setData(thisNodeKey,

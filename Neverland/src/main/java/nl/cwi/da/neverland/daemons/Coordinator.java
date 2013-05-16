@@ -108,8 +108,8 @@ public class Coordinator extends Thread implements Watcher {
 		} catch (IOException e) {
 			log.warn(e);
 		}
-		log.info("Neverland coordinator daemon started with Zookeeper at "
-				+ zookeeper);
+		log.info("Neverland coordinator daemon started with scenario "
+				+ scenario + " and Zookeeper at " + zookeeper);
 
 		startInternalWebserver(httpPort);
 
@@ -357,7 +357,7 @@ public class Coordinator extends Thread implements Watcher {
 				throws ServletException, IOException {
 			resp.setContentType("application/json");
 			resp.getWriter().write(gson.toJson(coord.getCurrentNodes()));
-			
+
 			// TODO: add loads of other stuff
 		}
 	}
@@ -377,7 +377,7 @@ public class Coordinator extends Thread implements Watcher {
 		staticContextHandler.setHandler(staticResourceHandler);
 
 		ServletContextHandler servletContextHandler = new ServletContextHandler(
-				ServletContextHandler.SESSIONS);
+				ServletContextHandler.NO_SESSIONS);
 		servletContextHandler.setContextPath("/callback");
 		servletContextHandler.addServlet(new ServletHolder(
 				new DataServlet(this)), "/*");
