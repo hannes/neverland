@@ -58,7 +58,7 @@ body {
 									.html(
 											Mustache
 													.render(
-															'{{#.}}<tr><th>{{hostname}}</th><td>{{load}}</td></tr>{{/.}}',
+															'<tr><th>Hostname</th><th>Load Avg.</th></tr>{{#.}}<tr><th>{{hostname}}</th><td>{{load}}</td></tr>{{/.}}',
 															data));
 
 						},
