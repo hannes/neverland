@@ -36,7 +36,7 @@ public abstract class Rewriter {
 	public static class StupidRewriter extends Rewriter {
 		@Override
 		public List<Subquery> rewrite(Query q, int numSubqueries) {
-			return Arrays.asList(new Subquery(q, q.getSql(), 0));
+			return Arrays.asList(new Subquery(q.getSql(), 0));
 		}
 	}
 
@@ -180,12 +180,12 @@ public abstract class Rewriter {
 			if (!q.getTables().contains(factTableName)) {
 				log.warn("Could not find fact table " + factTableName + " in "
 						+ q.getSql());
-				return Arrays.asList(new Subquery(q, q.getSql(), 0));
+				return Arrays.asList(new Subquery(q.getSql(), 0));
 			}
 
 			if (!q.isSingleSelect()) {
 				log.warn("Did not find a single plain select in " + q.getSql());
-				return Arrays.asList(new Subquery(q, q.getSql(), 0));
+				return Arrays.asList(new Subquery(q.getSql(), 0));
 			}
 
 			List<Subquery> subqueries = new ArrayList<Subquery>(numSubqueries);
@@ -265,12 +265,15 @@ public abstract class Rewriter {
 
 				// TODO: do not add subqueries that are outside existing filter
 				// conditions?
-				subqueries.add(new Subquery(q, ps.toString(), i));
+				Subquery sq = new Subquery(ps.toString(), i);
+				subqueries.add(sq);
+				sq.setSliceMin(keyMin);
+				sq.setSliceMax(keyMax);
+				sq.setFactTable(factTableName);
 			}
 
 			// right, let's rock!
 			return subqueries;
 		}
-
 	}
 }

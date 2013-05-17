@@ -25,10 +25,10 @@ public class SchedulerTest {
 				60000);
 		Query q = new Query(
 				"SELECT SUM(l_extendedprice * l_discount) FROM lineitem");
-		List<Subquery> sqs = rw.rewrite(q, 20);
+		q.setSubqueries(rw.rewrite(q, 20));
 		Scheduler s = new Scheduler.StickyScheduler();
 		List<NeverlandNode> nn = makeNodeList(10);
-		SubquerySchedule ss = s.schedule(nn, sqs);
+		SubquerySchedule ss = s.schedule(q, nn);
 		for (Entry<NeverlandNode, List<Subquery>> e : ss.entrySet()) {
 			String info = e.getKey().getId() + " <= ";
 			for (Subquery sq : e.getValue()) {

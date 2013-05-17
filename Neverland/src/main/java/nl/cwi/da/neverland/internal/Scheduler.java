@@ -33,28 +33,27 @@ public abstract class Scheduler {
 		}
 	}
 
-	public abstract SubquerySchedule schedule(List<NeverlandNode> nodes,
-			List<Subquery> subqueries) throws NeverlandException;
+	public abstract SubquerySchedule schedule(Query q, List<NeverlandNode> nodes)
+			throws NeverlandException;
 
 	public static class StupidScheduler extends Scheduler {
 		@Override
-		public SubquerySchedule schedule(List<NeverlandNode> nodes,
-				List<Subquery> subqueries) throws NeverlandException {
+		public SubquerySchedule schedule(Query q, List<NeverlandNode> nodes)
+				throws NeverlandException {
 
 			if (nodes.size() < 1) {
 				throw new NeverlandException(
 						"Need at least one node to schedule queries to");
 			}
 
-			if (subqueries.size() < 1) {
+			if (q.getSubqueries().size() < 1) {
 				throw new NeverlandException(
 						"Need at least one subquery to schedule");
 			}
 
 			NeverlandNode n1 = nodes.get(0);
-			SubquerySchedule schedule = new SubquerySchedule(subqueries.get(0)
-					.getParent());
-			schedule.put(n1, subqueries);
+			SubquerySchedule schedule = new SubquerySchedule(q);
+			schedule.put(n1, q.getSubqueries());
 			return schedule;
 		}
 	}
@@ -64,12 +63,11 @@ public abstract class Scheduler {
 		private int lastNodeIndex = 0;
 
 		@Override
-		public SubquerySchedule schedule(List<NeverlandNode> nodes,
-				List<Subquery> subqueries) throws NeverlandException {
-			SubquerySchedule schedule = new SubquerySchedule(subqueries.get(0)
-					.getParent());
+		public SubquerySchedule schedule(Query q, List<NeverlandNode> nodes)
+				throws NeverlandException {
+			SubquerySchedule schedule = new SubquerySchedule(q);
 
-			for (Subquery sq : subqueries) {
+			for (Subquery sq : q.getSubqueries()) {
 				lastNodeIndex = (lastNodeIndex + 1) % nodes.size();
 				schedule.schedule(nodes.get(lastNodeIndex), sq);
 			}
@@ -83,12 +81,11 @@ public abstract class Scheduler {
 		private Random rnd = new Random();
 
 		@Override
-		public SubquerySchedule schedule(List<NeverlandNode> nodes,
-				List<Subquery> subqueries) throws NeverlandException {
-			SubquerySchedule schedule = new SubquerySchedule(subqueries.get(0)
-					.getParent());
+		public SubquerySchedule schedule(Query q, List<NeverlandNode> nodes)
+				throws NeverlandException {
+			SubquerySchedule schedule = new SubquerySchedule(q);
 
-			for (Subquery sq : subqueries) {
+			for (Subquery sq : q.getSubqueries()) {
 				NeverlandNode n1 = nodes.get(rnd.nextInt(nodes.size()));
 				NeverlandNode n2 = nodes.get(rnd.nextInt(nodes.size()));
 				if (n1.getLoad() < n2.getLoad()) {
@@ -107,12 +104,11 @@ public abstract class Scheduler {
 		private Random rnd = new Random();
 
 		@Override
-		public SubquerySchedule schedule(List<NeverlandNode> nodes,
-				List<Subquery> subqueries) throws NeverlandException {
-			SubquerySchedule schedule = new SubquerySchedule(subqueries.get(0)
-					.getParent());
+		public SubquerySchedule schedule(Query q, List<NeverlandNode> nodes)
+				throws NeverlandException {
+			SubquerySchedule schedule = new SubquerySchedule(q);
 
-			for (Subquery sq : subqueries) {
+			for (Subquery sq : q.getSubqueries()) {
 				NeverlandNode n1 = nodes.get(rnd.nextInt(nodes.size()));
 				schedule.schedule(n1, sq);
 			}
@@ -123,11 +119,10 @@ public abstract class Scheduler {
 	public static class StickyScheduler extends Scheduler {
 
 		@Override
-		public SubquerySchedule schedule(List<NeverlandNode> nodes,
-				List<Subquery> subqueries) throws NeverlandException {
-			SubquerySchedule schedule = new SubquerySchedule(subqueries.get(0)
-					.getParent());
-			for (Subquery sq : subqueries) {
+		public SubquerySchedule schedule(Query q, List<NeverlandNode> nodes)
+				throws NeverlandException {
+			SubquerySchedule schedule = new SubquerySchedule(q);
+			for (Subquery sq : q.getSubqueries()) {
 				int node = sq.getSlice() % nodes.size();
 				schedule.schedule(nodes.get(node), sq);
 			}

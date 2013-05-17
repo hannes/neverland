@@ -4,12 +4,14 @@ import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.MalformedURLException;
-import java.net.URL;
 import java.nio.charset.Charset;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -29,8 +31,10 @@ import nl.cwi.da.neverland.internal.Query;
 import nl.cwi.da.neverland.internal.ResultCombiner;
 import nl.cwi.da.neverland.internal.Rewriter;
 import nl.cwi.da.neverland.internal.Scheduler;
-import nl.cwi.da.neverland.internal.Subquery;
 
+import org.apache.commons.collections.Buffer;
+import org.apache.commons.collections.BufferUtils;
+import org.apache.commons.collections.buffer.CircularFifoBuffer;
 import org.apache.log4j.Logger;
 import org.apache.mina.core.service.IoAcceptor;
 import org.apache.mina.core.service.IoHandlerAdapter;
@@ -358,10 +362,14 @@ public class Coordinator extends Thread implements Watcher {
 
 		protected void doGet(HttpServletRequest req, HttpServletResponse resp)
 				throws ServletException, IOException {
-			resp.setContentType("application/json");
-			resp.getWriter().write(gson.toJson(coord.getCurrentNodes()));
+			Map<String, Object> json = new HashMap<String, Object>();
+			List<NeverlandNode> nn = coord.getCurrentNodes();
+			json.put("nodes", nn);
+			json.put("numNodes", nn.size());
+			json.put("queries", coord.getLoggedQueries());
 
-			// TODO: add loads of other stuff
+			resp.setContentType("application/json");
+			resp.getWriter().write(gson.toJson(json));
 		}
 	}
 
@@ -425,6 +433,19 @@ public class Coordinator extends Thread implements Watcher {
 		}
 	}
 
+	Buffer querylog = BufferUtils.synchronizedBuffer(new CircularFifoBuffer());
+
+	@SuppressWarnings("unchecked")
+	private void logQuery(Query q) {
+		querylog.add(q);
+	}
+
+	@SuppressWarnings("unchecked")
+	private List<Query> getLoggedQueries() {
+		Query[] q = (Query[]) querylog.toArray(new Query[0]);
+		return Arrays.asList(q);
+	}
+
 	private static class JdbcSocketHandler extends IoHandlerAdapter {
 
 		private Coordinator coord;
@@ -460,16 +481,16 @@ public class Coordinator extends Thread implements Watcher {
 					return;
 				}
 
-				List<Subquery> subqueries = coord.getRewriter().rewrite(q,
-						nodes.size());
+				q.setSubqueries(coord.getRewriter().rewrite(q, nodes.size()));
 				Scheduler.SubquerySchedule schedule = coord.getScheduler()
-						.schedule(nodes, subqueries);
-
+						.schedule(q, nodes);
 				List<ResultSet> resultSets = coord.getExecutor()
 						.executeSchedule(schedule);
 				ResultCombiner rc = coord.getCombiner();
 				ResultSet aggrSet = rc.combine(schedule.getQuery(), resultSets);
 				Coordinator.serializeResultSet(aggrSet, session);
+
+				coord.logQuery(q);
 			}
 		}
 	}

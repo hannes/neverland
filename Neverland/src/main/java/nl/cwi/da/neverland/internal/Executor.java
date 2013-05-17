@@ -65,6 +65,7 @@ public abstract class Executor {
 			List<ResultSet> resultSets = new ArrayList<ResultSet>();
 
 			log.info("Running schedule for query " + schedule.getQuery());
+			long queryStart = System.currentTimeMillis();
 
 			for (Entry<NeverlandNode, List<Subquery>> sentry : schedule
 					.entrySet()) {
@@ -108,17 +109,30 @@ public abstract class Executor {
 									ResultSet rs = null;
 
 									try {
+										long connStart = System
+												.currentTimeMillis();
 										c = cpds.getConnection();
 										s = c.createStatement();
-										rs = s.executeQuery(sq.getSql());
+										sq.setConnectTimeSecs((System
+												.currentTimeMillis() - connStart) / 1000.0);
 
+										long subqueryStart = System
+												.currentTimeMillis();
+
+										rs = s.executeQuery(sq.getSql());
 										crs = new InternalResultSet(rs);
+
+										sq.setTimeTaken((System
+												.currentTimeMillis() - subqueryStart) / 1000.0);
+										sq.setAssignedNode(nn);
+										sq.setResultSetSize(crs.size());
 
 										crs.beforeFirst();
 
 										log.info("Got result on "
 												+ sq.getSlice() + " from "
 												+ nn.getHostname());
+
 									} catch (SQLException e) {
 										log.warn(e);
 										e.printStackTrace();
@@ -163,6 +177,8 @@ public abstract class Executor {
 				throw new NeverlandException(
 						"Not enough result sets found to combine, something must have gone wrong.");
 			}
+			schedule.getQuery().setTimeTaken(
+					(System.currentTimeMillis() - queryStart) / 1000.0);
 			return resultSets;
 		}
 	}

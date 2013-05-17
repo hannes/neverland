@@ -59,7 +59,7 @@ body {
 											Mustache
 													.render(
 															'<tr><th>Hostname</th><th>Load Avg.</th></tr>{{#.}}<tr><th>{{hostname}}</th><td>{{load}}</td></tr>{{/.}}',
-															data));
+															data.nodes));
 
 						},
 						complete : function() {

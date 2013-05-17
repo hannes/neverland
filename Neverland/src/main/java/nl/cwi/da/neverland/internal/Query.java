@@ -28,6 +28,10 @@ import net.sf.jsqlparser.statement.select.Union;
 import org.apache.log4j.Logger;
 
 public class Query {
+	private static long qid = 1;
+	private long queryId;
+	private double timeTaken;
+	private List<Subquery> subqueries;
 
 	private static Logger log = Logger.getLogger(Query.class);
 
@@ -37,10 +41,12 @@ public class Query {
 
 	private Map<Integer, Boolean> groupCols = new HashMap<Integer, Boolean>();
 	private Map<Integer, AggregationType> aggrCols = new HashMap<Integer, AggregationType>();
-	private Statement parsedQuery = null;
 	private List<String> tables = new ArrayList<String>();
-	private List<PlainSelect> selects = new ArrayList<PlainSelect>();
-	private PlainSelect singleSelect = null;
+	
+	// transient to keep them from being serialized
+	private transient Statement parsedQuery = null;
+	private transient List<PlainSelect> selects = new ArrayList<PlainSelect>();
+	private transient PlainSelect singleSelect = null;
 
 	private boolean isSingleSelect;
 	private boolean needsCounts = false;
@@ -50,9 +56,16 @@ public class Query {
 	};
 
 	public Query() {
+		this.queryId = createId();
+	}
+
+	private static synchronized long createId() {
+		return qid++;
 	}
 
 	public Query(String sqlQuery) throws NeverlandException {
+		this.queryId = createId();
+
 		this.sqlQuery = sqlQuery;
 
 		try {
@@ -217,5 +230,25 @@ public class Query {
 
 	public boolean needsAggregation() {
 		return aggrCols.size() > 0;
+	}
+
+	public long getId() {
+		return queryId;
+	}
+
+	public double getTimeTaken() {
+		return timeTaken;
+	}
+
+	public void setTimeTaken(double timeTaken) {
+		this.timeTaken = timeTaken;
+	}
+
+	public List<Subquery> getSubqueries() {
+		return subqueries;
+	}
+
+	public void setSubqueries(List<Subquery> subqueries) {
+		this.subqueries = subqueries;
 	}
 }

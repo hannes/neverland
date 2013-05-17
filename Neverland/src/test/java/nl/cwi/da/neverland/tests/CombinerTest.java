@@ -42,10 +42,11 @@ public class CombinerTest {
 		for (Entry<String, String> e : SSBM.QUERIES.entrySet()) {
 			System.out.println(e.getKey());
 			Query q = new Query(e.getValue());
+			q.setSubqueries(rw.rewrite(q, 10));
 			Scheduler.SubquerySchedule schedule = new StupidScheduler()
-					.schedule(Arrays.asList(new NeverlandNode("localhost", 42,
-							"jdbc:monetdb://localhost:50000/ssbm-sf1",
-							"monetdb", "monetdb", 0)), rw.rewrite(q, 10));
+					.schedule(q, Arrays.asList(new NeverlandNode("localhost",
+							42, "jdbc:monetdb://localhost:50000/ssbm-sf1",
+							"monetdb", "monetdb", 0)));
 
 			List<ResultSet> rss = new MultiThreadedExecutor(10, 2)
 					.executeSchedule(schedule);

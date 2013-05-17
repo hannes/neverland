@@ -10,6 +10,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 import java.util.Iterator;
 
 import nl.cwi.da.neverland.internal.Constants;
@@ -135,7 +136,6 @@ public class Worker extends Thread implements Watcher {
 	}
 
 	public static void main(String[] args) throws JSAPException {
-
 		JSAP jsap = new JSAP();
 
 		jsap.registerParameter(new FlaggedOption("jdbcuri").setShortFlag('j')

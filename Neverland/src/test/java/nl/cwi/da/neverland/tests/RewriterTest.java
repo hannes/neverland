@@ -31,7 +31,6 @@ public class RewriterTest {
 
 		for (Subquery sq : sqs) {
 			log.info(sq);
-			assertEquals(q, sq.getParent());
 			assertTrue(sq.getSql().startsWith(q.getSql()));
 		}
 
@@ -44,7 +43,6 @@ public class RewriterTest {
 		List<Subquery> sqs = rw.rewrite(q, 6);
 		for (Subquery sq : sqs) {
 			log.info(sq);
-			assertEquals(q, sq.getParent());
 		}
 	}
 
@@ -60,7 +58,6 @@ public class RewriterTest {
 		List<Subquery> sqs = rw.rewrite(q, 6);
 		for (Subquery sq : sqs) {
 			log.info(sq);
-			assertEquals(q, sq.getParent());
 		}
 
 	}
