@@ -79,25 +79,24 @@
 			<artifactId>zookeeper</artifactId>
 			<version>3.4.5</version>
 		</dependency>
-		<!-- Logging -->
+
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-log4j12</artifactId>
 			<version>1.6.0</version>
 		</dependency>
+		
 		<dependency>
 			<groupId>log4j</groupId>
 			<artifactId>log4j</artifactId>
 			<version>1.2.16</version>
 		</dependency>
+		
 		<dependency>
 			<groupId>net.sf.jsqlparser</groupId>
 			<artifactId>jsqlparser</artifactId>
 			<version>0.8.0</version>
 		</dependency>
-
-		<!-- <dependency> <groupId>com.h2database</groupId> <artifactId>h2</artifactId> 
-			<version>1.3.171</version> </dependency> -->
 
 		<dependency>
 			<groupId>com.martiansoftware</groupId>
@@ -117,7 +116,6 @@
 			<version>4.11</version>
 		</dependency>
 
-
 		<dependency>
 			<groupId>org.mockito</groupId>
 			<artifactId>mockito-all</artifactId>
@@ -131,7 +129,6 @@
 			<version>2.0.7</version>
 		</dependency>
 
-
 		<dependency>
 			<groupId>c3p0</groupId>
 			<artifactId>c3p0</artifactId>
@@ -143,9 +140,6 @@
 			<artifactId>commons-math</artifactId>
 			<version>2.1</version>
 		</dependency>
-
-
-
 
 		<dependency>
 			<groupId>org.eclipse.jetty</groupId>
@@ -165,13 +159,12 @@
 			<version>2.2.4</version>
 		</dependency>
 
-
 		<dependency>
 			<groupId>commons-collections</groupId>
 			<artifactId>commons-collections</artifactId>
-			<version>3.2.1</version>
+			<version>3.2</version>
 		</dependency>
-
+		
 	</dependencies>
 
 </project>

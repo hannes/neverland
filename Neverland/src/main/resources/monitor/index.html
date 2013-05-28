@@ -37,9 +37,12 @@ body {
 	</div>
 
 	<div class="container">
+		<h1>Nodes</h1>
 		<table id="nodes" class="table table-striped">
 
 		</table>
+		<h1>Queries</h1>
+		<ul id="queries">
 	</div>
 	<!-- /container -->
 
@@ -60,6 +63,13 @@ body {
 													.render(
 															'<tr><th>Hostname</th><th>Load Avg.</th></tr>{{#.}}<tr><th>{{hostname}}</th><td>{{load}}</td></tr>{{/.}}',
 															data.nodes));
+							
+							$('#queries')
+							.html(
+									Mustache
+											.render(
+													'{{#.}}<li><label>{{sqlQuery}}</label><ol>{{#subqueries}}<li>{{factTable}}[{{sliceMin}}:{{sliceMax}}] &gt; {{assignedNode.hostname}} ({{assignedNode.sessionId}})</li>{{/subqueries}}</ol>{{/.}}',
+													data.queries));
 
 						},
 						complete : function() {

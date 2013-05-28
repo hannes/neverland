@@ -11,6 +11,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Map.Entry;
 
 import nl.cwi.da.neverland.client.NeverlandResultSet;
 import nl.cwi.da.neverland.daemons.Coordinator;
@@ -39,7 +40,18 @@ public class JDBCTest {
 			}
 		}).start();
 
-		// bring up a worker
+		// bring up 2 workers
+		(new Thread() {
+			public void run() {
+				try {
+					Worker.main("-j jdbc:monetdb://localhost:50000/ssbm-sf1 -u monetdb -p monetdb"
+							.split(" "));
+				} catch (JSAPException e) {
+					e.printStackTrace();
+				}
+			}
+		}).start();
+		
 		(new Thread() {
 			public void run() {
 				try {
@@ -58,10 +70,11 @@ public class JDBCTest {
 				.getConnection("jdbc:neverland://localhost:50002/db");
 
 		Statement s = conn.createStatement();
-		ResultSet rs = s.executeQuery(SSBM.Q01);
-		//assertTrue(rs.next());
-		ResultCombiner.printResultSet(rs, System.out);
-
+		for (Entry<String, String> e : SSBM.QUERIES.entrySet()) {
+			ResultSet rs = s.executeQuery(e.getValue());
+			ResultCombiner.printResultSet(rs, System.out);
+		}
+		
 		Thread.sleep(3600 * 1000);
 	}
 
