@@ -57,7 +57,7 @@ public abstract class Executor {
 		}
 
 		@Override
-		public List<ResultSet> executeSchedule(SubquerySchedule schedule)
+		public List<ResultSet> executeSchedule(final SubquerySchedule schedule)
 				throws NeverlandException {
 			int subqueries = 0;
 
@@ -130,8 +130,9 @@ public abstract class Executor {
 										crs.beforeFirst();
 
 										log.info("Got result on "
-												+ sq.getSlice() + " from "
-												+ nn.getHostname());
+												+ schedule.getQuery().getId()
+												+ ":" + sq.getSlice()
+												+ " from " + nn.getHostname());
 
 									} catch (SQLException e) {
 										log.warn(e);

@@ -76,6 +76,28 @@ public abstract class Scheduler {
 
 	}
 
+	public static class StickyLoadBalancingScheduler extends Scheduler {
+
+		@Override
+		public SubquerySchedule schedule(Query q, List<NeverlandNode> nodes)
+				throws NeverlandException {
+			SubquerySchedule schedule = new SubquerySchedule(q);
+
+			for (Subquery sq : q.getSubqueries()) {
+				NeverlandNode n1 = nodes.get(sq.getSlice() % nodes.size());
+				NeverlandNode n2 = nodes.get(sq.getSlice() + 1 % nodes.size());
+
+				if (n1.getLoad() < n2.getLoad()) {
+					schedule.schedule(n1, sq);
+				} else {
+					schedule.schedule(n2, sq);
+				}
+
+			}
+			return schedule;
+		}
+	}
+
 	public static class LoadBalancingScheduler extends Scheduler {
 
 		private Random rnd = new Random();

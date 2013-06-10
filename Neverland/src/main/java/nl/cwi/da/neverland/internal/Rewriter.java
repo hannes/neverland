@@ -203,7 +203,7 @@ public abstract class Rewriter {
 
 			Expression oldWhere = ps.getWhere();
 
-			for (int i = 0; i <= numSubqueries; i++) {
+			for (int i = 0; i < numSubqueries; i++) {
 
 				long keyMin = factTableKeyMin + i
 						* ((factTableKeyMax - factTableKeyMin) / numSubqueries);
@@ -212,17 +212,19 @@ public abstract class Rewriter {
 								+ (i + 1)
 								* ((factTableKeyMax - factTableKeyMin) / numSubqueries),
 								factTableKeyMax);
+				
+				// last slice is extended to the remainder of the division
+				if (i == numSubqueries-1){
+					keyMax = factTableKeyMax;
+				}
 
 				if (keyMin == keyMax) {
 					break;
 				}
 
-				// TODO: add some sort of verification that these do not overlap
+				// TODO: add some sort of verification that these do not overlap and span the entire table
 
-				// min()/max()/sum() - easy
-				// count() - easy, re-aggregate groups
-				// avg() - need counts for each group
-				// first() / last() - useful for boundaries - easy
+				// first() / last() - useful for boundaries - not so easy
 				// distinct - easy
 
 				/**

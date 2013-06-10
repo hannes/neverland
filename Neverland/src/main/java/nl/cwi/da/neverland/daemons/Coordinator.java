@@ -87,7 +87,7 @@ public class Coordinator extends Thread implements Watcher {
 	private int httpPort;
 
 	public static enum NeverlandScenario {
-		baseline, loadbalance, rewriteround, rewriterandom, rewriteload, neverland;
+		baseline, loadbalance, rewriteround, rewriterandom, rewriteload, neverland, sticky;
 	}
 
 	public Coordinator(NeverlandScenario scenario, String zooKeeper,
@@ -152,9 +152,15 @@ public class Coordinator extends Thread implements Watcher {
 			this.combiner = new ResultCombiner.SmartResultCombiner();
 			break;
 
-		case neverland:
+		case sticky:
 			this.rewriter = null; // will be filled later
 			this.scheduler = new Scheduler.StickyScheduler();
+			this.combiner = new ResultCombiner.SmartResultCombiner();
+			break;
+
+		case neverland:
+			this.rewriter = null; // will be filled later
+			this.scheduler = new Scheduler.StickyLoadBalancingScheduler();
 			this.combiner = new ResultCombiner.SmartResultCombiner();
 			break;
 		}

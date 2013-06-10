@@ -39,6 +39,9 @@ public class JDBCTest {
 				}
 			}
 		}).start();
+		
+		Thread.sleep(1000);
+
 
 		// bring up 2 workers
 		(new Thread() {

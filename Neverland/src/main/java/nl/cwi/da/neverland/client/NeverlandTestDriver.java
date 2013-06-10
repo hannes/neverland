@@ -108,6 +108,8 @@ public class NeverlandTestDriver {
 							Connection c = DriverManager.getConnection(jdbc);
 							Statement s = c.createStatement();
 							for (int i = 0; i < warmup; i++) {
+								System.out.println("Running warmup set "
+										+ (i + 1) + " of " + warmup);
 								for (Entry<String, String> e : SSBM.QUERIES
 										.entrySet()) {
 									double time = executeQuery(e.getValue(), s);

@@ -6,6 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <link href="css/bootstrap.css" rel="stylesheet">
+<link href="css/codemirror.css" rel="stylesheet">
+
 <style>
 body {
 	padding-top: 60px;
@@ -38,45 +40,56 @@ body {
 
 	<div class="container">
 		<h1>Nodes</h1>
-		<table id="nodes" class="table table-striped">
+		<table id="nodes" class="table table-striped"></table>
 
-		</table>
 		<h1>Queries</h1>
-		<ul id="queries">
+		<table id="queries" class="table table-striped"></table>
 	</div>
 	<!-- /container -->
 
 	<script src="js/jquery.min.js"></script>
 	<script src="js/bootstrap.min.js"></script>
 	<script src="js/mustache.js"></script>
+	<script src="js/codemirror.js"></script>
+
 
 
 	<script type="text/javascript">
-		(function worker() {
-			$
-					.ajax({
-						url : '/callback/',
-						success : function(data) {
-							$('#nodes')
-									.html(
-											Mustache
-													.render(
-															'<tr><th>Hostname</th><th>Load Avg.</th></tr>{{#.}}<tr><th>{{hostname}}</th><td>{{load}}</td></tr>{{/.}}',
-															data.nodes));
-							
-							$('#queries')
-							.html(
-									Mustache
-											.render(
-													'{{#.}}<li><label>{{sqlQuery}}</label><ol>{{#subqueries}}<li>{{factTable}}[{{sliceMin}}:{{sliceMax}}] &gt; {{assignedNode.hostname}} ({{assignedNode.sessionId}})</li>{{/subqueries}}</ol>{{/.}}',
-													data.queries));
+		var helpers = {
+			sqlpretty : function(str) {
+				return 'p:';
+			}
+		}
 
-						},
-						complete : function() {
-							setTimeout(worker, 1000);
-						}
-					});
-		})();
+				(
+						function worker() {
+							$
+									.ajax({
+										url : '/callback/',
+										success : function(data) {
+
+											data.sqlpretty = helpers.sqlpretty;
+
+											$('#nodes')
+													.html(
+															Mustache
+																	.render(
+																			'<tr><th>Hostname</th><th>Load Avg.</th></tr>{{#.}}<tr><th>{{hostname}}</th><td>{{load}}</td></tr>{{/.}}',
+																			data.nodes));
+
+											$('#queries')
+													.html(
+															Mustache
+																	.render(
+																			'{{#.}}<tbody><tr><th colspan="4">{{#sqlpretty}}{{sqlQuery}}{{/sqlpretty}}</th></tr>{{#subqueries}}<tr><th>{{factTable}}[{{sliceMin}}:{{sliceMax}}]</th><td>{{assignedNode.hostname}} ({{assignedNode.sessionId}})</td><td>{{timeTaken}}s</td><td>{{resultSetSize}}</td></tr>{{/subqueries}}</tbody>{{/.}}',
+																			data.queries));
+
+										},
+										complete : function() {
+											setTimeout(worker, 1000);
+										}
+									});
+						})();
 	</script>
 
 
