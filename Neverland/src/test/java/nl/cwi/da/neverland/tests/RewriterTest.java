@@ -1,16 +1,16 @@
 package nl.cwi.da.neverland.tests;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.util.List;
 import java.util.Map.Entry;
 
 import nl.cwi.da.neverland.internal.NeverlandException;
+import nl.cwi.da.neverland.internal.NeverlandNode;
 import nl.cwi.da.neverland.internal.Query;
 import nl.cwi.da.neverland.internal.Rewriter;
-import nl.cwi.da.neverland.internal.SSBM;
 import nl.cwi.da.neverland.internal.Rewriter.NotSoStupidRewriter;
+import nl.cwi.da.neverland.internal.SSBM;
 import nl.cwi.da.neverland.internal.Subquery;
 
 import org.apache.log4j.Logger;
@@ -20,7 +20,7 @@ public class RewriterTest {
 
 	private static Logger log = Logger.getLogger(RewriterTest.class);
 	private Rewriter rw = new NotSoStupidRewriter("lineitem", "l_orderkey", 0,
-			60000);
+			60000, 10);
 
 	@Test
 	public void selectStarRewriterTest() throws NeverlandException {
@@ -47,11 +47,6 @@ public class RewriterTest {
 	}
 
 	@Test
-	public void unionRewriterTest() {
-
-	}
-
-	@Test
 	public void existingRestrictionRewriterTest() throws NeverlandException {
 		Query q = new Query(
 				"SELECT SUM(l_extendedprice * l_discount) FROM lineitem where l_extendedprice > 42;");
@@ -65,7 +60,7 @@ public class RewriterTest {
 	@Test
 	public void ssbmRewriterTest() throws NeverlandException {
 		Rewriter rw = new NotSoStupidRewriter("lineorder", "lo_orderkey", 0,
-				60000);
+				60000, 10);
 		for (Entry<String, String> e : SSBM.QUERIES.entrySet()) {
 			log.info(e.getKey());
 			Query q = new Query(e.getValue());
@@ -73,6 +68,18 @@ public class RewriterTest {
 			for (Subquery sq : sqs) {
 				log.info(sq);
 			}
+		}
+	}
+
+	@Test
+	public void constructRewriterTest() throws NeverlandException {
+		Rewriter rw = Rewriter.constructRewriterFromDb(new NeverlandNode(
+				"localhost", 42, "jdbc:monetdb://localhost:50000/ssbm-sf1",
+				"monetdb", "monetdb", 1), 1000);
+		Query q = new Query(SSBM.Q01);
+		List<Subquery> sqs = rw.rewrite(q, 100);
+		for (Subquery sq : sqs) {
+			log.info(sq);
 		}
 	}
 }

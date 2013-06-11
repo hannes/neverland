@@ -129,7 +129,7 @@ public abstract class Executor {
 
 										crs.beforeFirst();
 
-										log.info("Got result on "
+										log.debug("Got result on "
 												+ schedule.getQuery().getId()
 												+ ":" + sq.getSlice()
 												+ " from " + nn.getHostname());

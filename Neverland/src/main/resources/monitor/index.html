@@ -49,47 +49,66 @@ body {
 
 	<script src="js/jquery.min.js"></script>
 	<script src="js/bootstrap.min.js"></script>
-	<script src="js/mustache.js"></script>
-	<script src="js/codemirror.js"></script>
+	<script src="js/handlebars.js"></script>
+	<!-- <script src="js/codemirror.js"></script> -->
 
+	<script id="node-template" type="text/x-handlebars-template">
+	<tr><th>Hostname</th><th>Load Avg.</th></tr>
+	{{#.}}
+		<tr><th>{{hostname}}</th><td>{{load}}</td></tr>
+	{{/.}}
+	</script>
+
+	<script id="query-template" type="text/x-handlebars-template">
+	{{#.}}
+		<tbody>
+			<tr><th colspan="4" class="sql-query">{{sqlQuery}}</th></tr>
+			{{#subqueries}}
+				<tr><th>{{factTable}}[{{sliceMin}}:{{sliceMax}}]</th><td>{{assignedNode.hostname}} ({{assignedNode.sessionId}})</td><td>{{timeTaken}}s</td><td>{{resultSetSize}}</td></tr>
+			{{/subqueries}}
+		</tbody>
+	{{/.}}
+	</script>
 
 
 	<script type="text/javascript">
-		var helpers = {
-			sqlpretty : function(str) {
-				return 'p:';
-			}
-		}
+		var nodetpl = Handlebars.compile($("#node-template").html());
+		var querytpl = Handlebars.compile($("#query-template").html());
 
-				(
-						function worker() {
-							$
-									.ajax({
-										url : '/callback/',
-										success : function(data) {
+		(function worker() {
+			$.ajax({
+				url : '/callback/',
+				success : function(data) {
 
-											data.sqlpretty = helpers.sqlpretty;
+					data.sqlpretty = (function(x) {
+						return 'p:' + x;
+					});
 
-											$('#nodes')
-													.html(
-															Mustache
-																	.render(
-																			'<tr><th>Hostname</th><th>Load Avg.</th></tr>{{#.}}<tr><th>{{hostname}}</th><td>{{load}}</td></tr>{{/.}}',
-																			data.nodes));
+					$('#nodes').html(nodetpl(data.nodes));
+					$('#queries').html(querytpl(data.queries));
 
-											$('#queries')
-													.html(
-															Mustache
-																	.render(
-																			'{{#.}}<tbody><tr><th colspan="4">{{#sqlpretty}}{{sqlQuery}}{{/sqlpretty}}</th></tr>{{#subqueries}}<tr><th>{{factTable}}[{{sliceMin}}:{{sliceMax}}]</th><td>{{assignedNode.hostname}} ({{assignedNode.sessionId}})</td><td>{{timeTaken}}s</td><td>{{resultSetSize}}</td></tr>{{/subqueries}}</tbody>{{/.}}',
-																			data.queries));
+					/*
+					$('.sql-query').each(function() {
+					    var $this = $(this),
+					        $code = $this.html();
 
-										},
-										complete : function() {
-											setTimeout(worker, 1000);
-										}
-									});
-						})();
+					    $this.empty();
+
+					    var myCodeMirror = CodeMirror(this, {
+					        value: $code,
+					        mode: 'sql',
+					        lineNumbers: false,
+					        readOnly:  "nocursor" ,
+					        lineWrapping: true
+					    });
+
+					});*/
+				},
+				complete : function() {
+					setTimeout(worker, 1000);
+				}
+			});
+		})();
 	</script>
 
 

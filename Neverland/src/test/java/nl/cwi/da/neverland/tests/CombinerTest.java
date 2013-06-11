@@ -37,7 +37,7 @@ public class CombinerTest {
 	public void ssbmIntegrationTest() throws NeverlandException, SQLException,
 			InterruptedException {
 		Rewriter rw = new NotSoStupidRewriter("lineorder", "lo_orderkey", 0,
-				60000);
+				60000,100);
 
 		for (Entry<String, String> e : SSBM.QUERIES.entrySet()) {
 			System.out.println(e.getKey());

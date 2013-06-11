@@ -86,12 +86,14 @@ public class Coordinator extends Thread implements Watcher {
 
 	private int httpPort;
 
+	private long shardSize = 1;
+
 	public static enum NeverlandScenario {
 		baseline, loadbalance, rewriteround, rewriterandom, rewriteload, neverland, sticky;
 	}
 
 	public Coordinator(NeverlandScenario scenario, String zooKeeper,
-			int jdbcPort, int httpPort) {
+			int jdbcPort, int httpPort, long shardSize) {
 		this.zookeeper = zooKeeper;
 		this.jdbcPort = jdbcPort;
 		this.httpPort = httpPort;
@@ -104,6 +106,7 @@ public class Coordinator extends Thread implements Watcher {
 
 		this.executor = new Executor.MultiThreadedExecutor(100, 8);
 		this.scenario = scenario;
+		this.shardSize = shardSize;
 	}
 
 	private Constants.CoordinatorState coordinatorState = Constants.CoordinatorState.initializing;
@@ -188,8 +191,9 @@ public class Coordinator extends Thread implements Watcher {
 				// structure
 				try {
 					if (this.rewriter == null) {
-						this.rewriter = Rewriter.constructRewriterFromDb(nodes
-								.get(0));
+						// TODO: get the 1000 from config!
+						this.rewriter = Rewriter.constructRewriterFromDb(
+								nodes.get(0), shardSize);
 					}
 
 					coordinatorState = Constants.CoordinatorState.normal;
@@ -283,6 +287,15 @@ public class Coordinator extends Thread implements Watcher {
 				.setHelp(
 						"TCP port number for the HTTP monitoring server to listen on"));
 
+		jsap.registerParameter(new FlaggedOption("shardsize")
+				.setShortFlag('d')
+				.setLongFlag("shard-size")
+				.setStringParser(JSAP.LONG_PARSER)
+				.setRequired(false)
+				.setDefault(Long.toString(Constants.DEFAULT_SHARD_SIZE))
+				.setHelp(
+						"TCP port number for the HTTP monitoring server to listen on"));
+
 		jsap.registerParameter(new FlaggedOption("scenario").setShortFlag('s')
 				.setLongFlag("neverland-scenario")
 				.setStringParser(new NeverlandScenarioParser())
@@ -327,7 +340,7 @@ public class Coordinator extends Thread implements Watcher {
 		}
 		new Coordinator(scenario, res.getInetAddress("zkhost").getHostAddress()
 				+ ":" + res.getInt("zkport"), res.getInt("jdbcport"),
-				res.getInt("httpport")).start();
+				res.getInt("httpport"), res.getLong("shardsize")).start();
 
 	}
 

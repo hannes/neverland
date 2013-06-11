@@ -64,6 +64,11 @@ public class NeverlandTestDriver {
 				.setRequired(false).setDefault("1")
 				.setHelp("Number of test runs through the query set"));
 
+		jsap.registerParameter(new FlaggedOption("set").setShortFlag('s')
+				.setLongFlag("set").setStringParser(JSAP.STRING_PARSER)
+				.setRequired(false).setDefault("SSBM")
+				.setHelp("Test query set, can be SSBM or SSBM-FAST"));
+
 		JSAPResult res = jsap.parse(args);
 
 		if (!res.success()) {
@@ -98,6 +103,14 @@ public class NeverlandTestDriver {
 		ExecutorService executorService = Executors.newFixedThreadPool(res
 				.getInt("threads"));
 
+		final Map<String, String> tq = SSBM.QUERIES;
+		if (res.getString("set").toLowerCase().equals("ssbm-fast")) {
+			tq.remove("Q07");
+			tq.remove("Q11");
+			tq.remove("Q12");
+			tq.remove("Q13");
+		}
+
 		for (int i = 0; i < threads; i++) {
 			resultStats.add(executorService
 					.submit(new Callable<ThreadResult>() {
@@ -110,8 +123,7 @@ public class NeverlandTestDriver {
 							for (int i = 0; i < warmup; i++) {
 								System.out.println("Running warmup set "
 										+ (i + 1) + " of " + warmup);
-								for (Entry<String, String> e : SSBM.QUERIES
-										.entrySet()) {
+								for (Entry<String, String> e : tq.entrySet()) {
 									double time = executeQuery(e.getValue(), s);
 									System.out.println(e.getKey() + ": " + time);
 								}
@@ -121,8 +133,7 @@ public class NeverlandTestDriver {
 							for (int i = 0; i < runs; i++) {
 								System.out.println("Running test set "
 										+ (i + 1) + " of " + runs);
-								for (Entry<String, String> e : SSBM.QUERIES
-										.entrySet()) {
+								for (Entry<String, String> e : tq.entrySet()) {
 									if (!timings.containsKey(e.getKey())) {
 										timings.put(e.getKey(),
 												new StatisticalDescription());
@@ -177,13 +188,11 @@ public class NeverlandTestDriver {
 
 		}
 
-
 		for (Entry<String, StatisticalDescription> e : timings.entrySet()) {
 			System.out.println(e.getKey() + ":\t" + e.getValue());
 		}
-		
-		System.out.println("QPS: " + totalQps);
 
+		System.out.println("QPS: " + totalQps);
 
 	}
 }

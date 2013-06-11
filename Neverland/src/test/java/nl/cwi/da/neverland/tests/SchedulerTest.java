@@ -22,7 +22,7 @@ public class SchedulerTest {
 	@Test
 	public void StickySchedulerTest() throws NeverlandException {
 		Rewriter rw = new NotSoStupidRewriter("lineitem", "l_orderkey", 0,
-				60000);
+				60000,100);
 		Query q = new Query(
 				"SELECT SUM(l_extendedprice * l_discount) FROM lineitem");
 		q.setSubqueries(rw.rewrite(q, 20));

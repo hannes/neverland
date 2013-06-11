@@ -28,14 +28,14 @@ import net.sf.jsqlparser.statement.select.SelectExpressionItem;
 import org.apache.log4j.Logger;
 
 public abstract class Rewriter {
-	public abstract List<Subquery> rewrite(Query q, int numSubqueries)
+	public abstract List<Subquery> rewrite(Query q, long numSubqueries)
 			throws NeverlandException;
 
 	private static Logger log = Logger.getLogger(Rewriter.class);
 
 	public static class StupidRewriter extends Rewriter {
 		@Override
-		public List<Subquery> rewrite(Query q, int numSubqueries) {
+		public List<Subquery> rewrite(Query q, long numSubqueries) {
 			return Arrays.asList(new Subquery(q.getSql(), 0));
 		}
 	}
@@ -57,10 +57,11 @@ public abstract class Rewriter {
 		private long keyColMax;
 	}
 
-	public static Rewriter constructRewriterFromDb(NeverlandNode nn)
-			throws NeverlandException {
+	public static Rewriter constructRewriterFromDb(NeverlandNode nn,
+			long shardSize) throws NeverlandException {
 
 		Map<String, FactTable> factTables = new HashMap<String, FactTable>();
+		long numShards = 1;
 
 		try {
 			log.debug("Constructing rewriter from DB advertised by " + nn);
@@ -128,6 +129,8 @@ public abstract class Rewriter {
 					ft.keyColMin = minKey;
 					ft.keyColMax = maxKey;
 
+					numShards = tableSize / shardSize;
+
 					factTables.put(schemaName, ft);
 				}
 			}
@@ -137,12 +140,13 @@ public abstract class Rewriter {
 
 		if (factTables.size() != 1) {
 			throw new NeverlandException(
-					"Sorry, but cannot find a fact table on " + nn);
+					"Sorry, but cannot find a single fact table on " + nn);
 		}
 
 		FactTable ft = factTables.entrySet().iterator().next().getValue();
-		log.info("Rewriting on " + ft);
-		return new NotSoStupidRewriter(ft);
+		log.info("Rewriting on " + ft  + " with " + numShards + " shards.") ;
+
+		return new NotSoStupidRewriter(ft, numShards);
 	}
 
 	public static class NotSoStupidRewriter extends Rewriter {
@@ -150,32 +154,37 @@ public abstract class Rewriter {
 		private String factTableKey;
 		private long factTableKeyMin;
 		private long factTableKeyMax;
+		private long numShards;
 
-		// TODO: move numSubqueries to rewrite()?
-		public NotSoStupidRewriter(FactTable ft) {
+		public NotSoStupidRewriter(FactTable ft, long numShards) {
 			this.factTableName = ft.name;
 			this.factTableKey = ft.keyColumn;
 			this.factTableKeyMin = ft.keyColMin;
 			this.factTableKeyMax = ft.keyColMax;
+			this.numShards = numShards;
 		}
 
 		public NotSoStupidRewriter(String factTable, String factTableKey,
-				int factTableKeyMin, int factTableKeyMax) {
+				int factTableKeyMin, int factTableKeyMax, long numShards) {
 			this.factTableName = factTable.toLowerCase();
 			this.factTableKey = factTableKey;
 			this.factTableKeyMin = factTableKeyMin;
 			this.factTableKeyMax = factTableKeyMax;
+			this.numShards = numShards;
 		}
 
 		private static Logger log = Logger.getLogger(NotSoStupidRewriter.class);
 
 		@Override
-		public List<Subquery> rewrite(Query q, int numSubqueries)
+		public List<Subquery> rewrite(Query q, long numSubqueries)
 				throws NeverlandException {
 
 			if (numSubqueries < 2) {
 				return new StupidRewriter().rewrite(q, 1);
 			}
+
+			// overwrite numSubqueries with numShards from factTable
+			numSubqueries = numShards;
 
 			if (!q.getTables().contains(factTableName)) {
 				log.warn("Could not find fact table " + factTableName + " in "
@@ -188,7 +197,7 @@ public abstract class Rewriter {
 				return Arrays.asList(new Subquery(q.getSql(), 0));
 			}
 
-			List<Subquery> subqueries = new ArrayList<Subquery>(numSubqueries);
+			List<Subquery> subqueries = new ArrayList<Subquery>();
 
 			PlainSelect ps = q.getSingleSelect();
 			if (q.needsCountsTable()) {
@@ -198,11 +207,13 @@ public abstract class Rewriter {
 				countstar.setAllColumns(true);
 				countstar.setName("COUNT");
 				groupcount.setExpression(countstar);
+
+				// this warning is too ugly to get rid of, ignore...
 				ps.getSelectItems().add(groupcount);
 			}
 
 			Expression oldWhere = ps.getWhere();
-
+			
 			for (int i = 0; i < numSubqueries; i++) {
 
 				long keyMin = factTableKeyMin + i
@@ -212,9 +223,9 @@ public abstract class Rewriter {
 								+ (i + 1)
 								* ((factTableKeyMax - factTableKeyMin) / numSubqueries),
 								factTableKeyMax);
-				
+
 				// last slice is extended to the remainder of the division
-				if (i == numSubqueries-1){
+				if (i == numSubqueries - 1) {
 					keyMax = factTableKeyMax;
 				}
 
@@ -222,15 +233,9 @@ public abstract class Rewriter {
 					break;
 				}
 
-				// TODO: add some sort of verification that these do not overlap and span the entire table
-
-				// first() / last() - useful for boundaries - not so easy
-				// distinct - easy
-
 				/**
-				 * Table 4-1: SQL99 Aggregate Functions AVG(expression)
-				 * COUNT(expression) COUNT(*) MIN(expression) MAX(expression)
-				 * SUM(expression)
+				 * SQL99 Aggregate Functions AVG(expression) COUNT(expression)
+				 * COUNT(*) MIN(expression) MAX(expression) SUM(expression)
 				 **/
 
 				Column c = new Column(new Table(factTableName, null),
@@ -256,7 +261,7 @@ public abstract class Rewriter {
 				}
 
 				ps.setWhere(range);
-				// ordering is not important here. We'll have to reorg the
+				// ordering is not important here. We'll have to reorder the
 				// result anyways.
 				ps.setOrderByElements(null);
 
