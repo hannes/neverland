@@ -37,14 +37,16 @@ public class Worker extends Thread implements Watcher {
 	private Constants.WorkerState workerState = Constants.WorkerState.initializing;
 
 	private String jdbcUri;
+	private String jdbcDriver;
 	private String zookeeper;
 
 	private String jdbcUser;
 	private String jdbcPass;
 
-	public Worker(String zooKeeper, String jdbcUri, String jdbcUser,
-			String jdbcPass) {
+	public Worker(String zooKeeper, String jdbcDriver, String jdbcUri,
+			String jdbcUser, String jdbcPass) {
 		this.zookeeper = zooKeeper;
+		this.jdbcDriver = jdbcDriver;
 		this.jdbcUri = jdbcUri;
 		this.jdbcUser = jdbcUser;
 		this.jdbcPass = jdbcPass;
@@ -61,8 +63,8 @@ public class Worker extends Thread implements Watcher {
 		log.info("Neverland worker daemon starting. Advertising JDBC URI "
 				+ jdbcUri + " ...");
 
-		NeverlandNode thisNode = new NeverlandNode("localhost", 0, jdbcUri,
-				jdbcUser, jdbcPass, 0);
+		NeverlandNode thisNode = new NeverlandNode("localhost", 0, jdbcDriver,
+				jdbcUri, jdbcUser, jdbcPass, 0);
 
 		try {
 			thisNode.setHostname(InetAddress.getLocalHost().getHostName());
@@ -71,62 +73,61 @@ public class Worker extends Thread implements Watcher {
 		}
 
 		String thisNodeKey = "";
-		while (workerState == Constants.WorkerState.initializing) {
-			try {
-				Class.forName(Constants.JDBC_DRIVER);
-				Connection c = DriverManager.getConnection(jdbcUri, jdbcUser,
-						jdbcPass);
-				Statement s = c.createStatement();
-				ResultSet rs = s.executeQuery("SELECT 1");
-				if (!rs.next()) {
-					throw new SQLException("Wadde hadde dudde da?");
-				}
-				rs.close();
-				s.close();
-				c.close();
-				thisNodeKey = Constants.ZK_PREFIX + "/" + zkc.getSessionId();
-				
-				zkc.create(thisNodeKey,
-						SerializableUtils.toByteArray(thisNode),
-						Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL);
-
-				log.info("Successfully advertised at " + thisNodeKey);
-				workerState = Constants.WorkerState.normal;
-
-			} catch (Exception e) {
-				log.warn("Unable to advertise DB at " + jdbcUri + " to ZK at "
-						+ zookeeper, e);
-			}
-
-			try {
-				Thread.sleep(Constants.ADVERTISE_DELAY_MS);
-			} catch (InterruptedException e) {
-				// ignore this.
-			}
-		}
-
 		final OperatingSystemMXBean myOsBean = ManagementFactory
 				.getOperatingSystemMXBean();
 
-		while (workerState == Constants.WorkerState.normal) {
-			thisNode.setLoad(myOsBean.getSystemLoadAverage());
-			thisNode.setId(zkc.getSessionId());
-			try {
+		while (true) {
+			if (workerState == Constants.WorkerState.initializing) {
+				try {
+					Class.forName(jdbcDriver);
+					Connection c = DriverManager.getConnection(jdbcUri,
+							jdbcUser, jdbcPass);
+					Statement s = c.createStatement();
+					ResultSet rs = s.executeQuery("SELECT 1");
+					if (!rs.next()) {
+						throw new SQLException("Wadde hadde dudde da?");
+					}
+					rs.close();
+					s.close();
+					c.close();
+					log.info("Successfully verified connection to " + jdbcUri);
+					thisNodeKey = Constants.ZK_PREFIX + "/"
+							+ zkc.getSessionId();
 
-				zkc.setData(thisNodeKey,
-						SerializableUtils.toByteArray(thisNode), -1);
+					zkc.create(thisNodeKey,
+							SerializableUtils.toByteArray(thisNode),
+							Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL);
 
-			} catch (Exception e) {
-				log.warn("ZK Error", e);
-				// TODO: go to initialization...
+					log.info("Successfully advertised at " + thisNodeKey);
+					workerState = Constants.WorkerState.normal;
+
+				} catch (Exception e) {
+					log.warn("Unable to advertise DB at " + jdbcUri
+							+ " to ZK at " + zookeeper, e);
+				}
+
 			}
+			if (workerState == Constants.WorkerState.normal) {
+				try {
+					thisNode.setLoad(myOsBean.getSystemLoadAverage());
+					thisNode.setId(zkc.getSessionId());
+					zkc.setData(thisNodeKey,
+							SerializableUtils.toByteArray(thisNode), -1);
 
+				} catch (Exception e) {
+					log.warn("ZK Error", e);
+					workerState = Constants.WorkerState.initializing;
+				}
+
+			}
 			try {
 				Thread.sleep(Constants.ADVERTISE_DELAY_MS);
 			} catch (InterruptedException e) {
 				// ignore this.
 			}
+
 		}
+
 	}
 
 	@Override
@@ -136,6 +137,11 @@ public class Worker extends Thread implements Watcher {
 
 	public static void main(String[] args) throws JSAPException {
 		JSAP jsap = new JSAP();
+
+		jsap.registerParameter(new FlaggedOption("jdbcdriver")
+				.setShortFlag('d').setLongFlag("jdbc-driver")
+				.setStringParser(JSAP.STRING_PARSER).setRequired(true)
+				.setHelp("Database JDBC driver class name"));
 
 		jsap.registerParameter(new FlaggedOption("jdbcuri").setShortFlag('j')
 				.setLongFlag("jdbc-uri").setStringParser(JSAP.STRING_PARSER)
@@ -178,7 +184,8 @@ public class Worker extends Thread implements Watcher {
 		}
 
 		new Worker(res.getInetAddress("zkhost").getHostAddress() + ":"
-				+ res.getInt("zkport"), res.getString("jdbcuri"),
-				res.getString("jdbcuser"), res.getString("jdbcpass")).start();
+				+ res.getInt("zkport"), res.getString("jdbcdriver"),
+				res.getString("jdbcuri"), res.getString("jdbcuser"),
+				res.getString("jdbcpass")).start();
 	}
 }

@@ -3,7 +3,7 @@
 SCRIPT=$(readlink -f $0)
 SCRIPTPATH=$(dirname $SCRIPT)
 JAR=$SCRIPTPATH/../target/neverland.jar
-JAVA_OPTS="-Djava.net.preferIPv4Stack=true -Xmx1G"
+JAVA_OPTS="-Djava.net.preferIPv4Stack=true -Xmx4G"
 
 whitespace="[[:space:]]"
 C="java $JAVA_OPTS -cp $JAR nl.cwi.da.neverland.daemons.Coordinator"

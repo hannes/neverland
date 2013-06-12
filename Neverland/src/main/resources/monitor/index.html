@@ -53,9 +53,9 @@ body {
 	<!-- <script src="js/codemirror.js"></script> -->
 
 	<script id="node-template" type="text/x-handlebars-template">
-	<tr><th>Hostname</th><th>Load Avg.</th></tr>
+	<tr><th>Hostname</th><th>JDBC</th><th>Load Avg.</th></tr>
 	{{#.}}
-		<tr><th>{{hostname}}</th><td>{{load}}</td></tr>
+		<tr><th>{{hostname}}</th><td>{{jdbcUrl}}</td><td>{{load}}</td></tr>
 	{{/.}}
 	</script>
 

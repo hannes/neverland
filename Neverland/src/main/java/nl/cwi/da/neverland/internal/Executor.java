@@ -74,7 +74,7 @@ public abstract class Executor {
 				if (!dataSources.containsKey(nn.getId())) {
 					ComboPooledDataSource cpds = new ComboPooledDataSource();
 					try {
-						cpds.setDriverClass(Constants.JDBC_DRIVER);
+						cpds.setDriverClass(nn.getJdbcDriver());
 					} catch (PropertyVetoException e) {
 						log.warn("Unable to load JDBC driver", e);
 					}

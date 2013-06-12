@@ -22,7 +22,7 @@ public class SchedulerTest {
 	@Test
 	public void StickySchedulerTest() throws NeverlandException {
 		Rewriter rw = new NotSoStupidRewriter("lineitem", "l_orderkey", 0,
-				60000,100);
+				60000, 100);
 		Query q = new Query(
 				"SELECT SUM(l_extendedprice * l_discount) FROM lineitem");
 		q.setSubqueries(rw.rewrite(q, 20));
@@ -41,7 +41,7 @@ public class SchedulerTest {
 	private List<NeverlandNode> makeNodeList(int size) {
 		List<NeverlandNode> l = new ArrayList<NeverlandNode>(size);
 		for (int i = 0; i < size; i++) {
-			l.add(new NeverlandNode("n" + i, i, "", "", "", 0));
+			l.add(new NeverlandNode("n" + i, i, "", "", "", "", 0));
 		}
 		return l;
 	}

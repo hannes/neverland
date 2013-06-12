@@ -74,12 +74,24 @@ public class RewriterTest {
 	@Test
 	public void constructRewriterTest() throws NeverlandException {
 		Rewriter rw = Rewriter.constructRewriterFromDb(new NeverlandNode(
-				"localhost", 42, "jdbc:monetdb://localhost:50000/ssbm-sf1",
+				"localhost", 42, "nl.cwi.monetdb.jdbc.MonetDriver", "jdbc:monetdb://localhost:50000/ssbm-sf1",
 				"monetdb", "monetdb", 1), 1000);
 		Query q = new Query(SSBM.Q01);
 		List<Subquery> sqs = rw.rewrite(q, 100);
 		for (Subquery sq : sqs) {
 			log.info(sq);
+		}
+	}
+	
+	@Test
+	public void constructPostgresTest() throws NeverlandException {
+		Rewriter rw = Rewriter.constructRewriterFromDb(new NeverlandNode(
+				"localhost", 42, "org.postgresql.Driver", "jdbc:postgresql://localhost:5432/ssbm-sf1",
+				"ssbm", "ssbm", 1), 1000);
+		Query q = new Query(SSBM.Q01);
+		List<Subquery> sqs = rw.rewrite(q, 10000000);
+		for (Subquery sq : sqs) {
+			//log.info(sq);
 		}
 	}
 }

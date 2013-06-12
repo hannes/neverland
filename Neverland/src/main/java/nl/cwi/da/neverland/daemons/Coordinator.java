@@ -8,10 +8,8 @@ import java.nio.charset.Charset;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -44,6 +42,7 @@ import org.apache.mina.filter.codec.ProtocolCodecFilter;
 import org.apache.mina.filter.codec.textline.TextLineCodecFactory;
 import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
 import org.apache.zookeeper.CreateMode;
+import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooDefs.Ids;
@@ -97,14 +96,7 @@ public class Coordinator extends Thread implements Watcher {
 		this.zookeeper = zooKeeper;
 		this.jdbcPort = jdbcPort;
 		this.httpPort = httpPort;
-
-		try {
-			Class.forName(Constants.JDBC_DRIVER);
-		} catch (ClassNotFoundException e) {
-			log.fatal("JDBC driver not found on classpath", e);
-		}
-
-		this.executor = new Executor.MultiThreadedExecutor(100, 8);
+		this.executor = new Executor.MultiThreadedExecutor(100, 20);
 		this.scenario = scenario;
 		this.shardSize = shardSize;
 	}
@@ -191,11 +183,9 @@ public class Coordinator extends Thread implements Watcher {
 				// structure
 				try {
 					if (this.rewriter == null) {
-						// TODO: get the 1000 from config!
 						this.rewriter = Rewriter.constructRewriterFromDb(
 								nodes.get(0), shardSize);
 					}
-
 					coordinatorState = Constants.CoordinatorState.normal;
 
 				} catch (NeverlandException e) {
@@ -229,11 +219,13 @@ public class Coordinator extends Thread implements Watcher {
 		}
 
 		while (coordinatorState == Constants.CoordinatorState.normal) {
-			// TODO: do sth here
 			try {
+				zkc.exists(Constants.ZK_PREFIX, this);
 				Thread.sleep(Constants.POLL_DELAY_MS);
 			} catch (InterruptedException e) {
 				// ignore this.
+			} catch (KeeperException e) {
+				// TODO: go to init
 			}
 		}
 	}
@@ -242,6 +234,8 @@ public class Coordinator extends Thread implements Watcher {
 	public void process(WatchedEvent event) {
 		// TODO: do we need this at all?
 		// maybe if we want to react if a node goes down
+
+		//log.warn(event);
 	}
 
 	public static class NeverlandScenarioParser extends StringParser {
@@ -452,7 +446,8 @@ public class Coordinator extends Thread implements Watcher {
 		}
 	}
 
-	Buffer querylog = BufferUtils.synchronizedBuffer(new CircularFifoBuffer());
+	Buffer querylog = BufferUtils.synchronizedBuffer(new CircularFifoBuffer(
+			Constants.QUERYLOG_SIZE));
 
 	@SuppressWarnings("unchecked")
 	private void logQuery(Query q) {

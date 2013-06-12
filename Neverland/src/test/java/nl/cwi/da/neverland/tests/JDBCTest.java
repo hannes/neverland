@@ -16,7 +16,6 @@ import java.util.Map.Entry;
 import nl.cwi.da.neverland.client.NeverlandResultSet;
 import nl.cwi.da.neverland.daemons.Coordinator;
 import nl.cwi.da.neverland.daemons.Worker;
-import nl.cwi.da.neverland.internal.ResultCombiner;
 import nl.cwi.da.neverland.internal.SSBM;
 
 import org.junit.Test;
@@ -39,9 +38,8 @@ public class JDBCTest {
 				}
 			}
 		}).start();
-		
-		Thread.sleep(1000);
 
+		Thread.sleep(1000);
 
 		// bring up 2 workers
 		(new Thread() {
@@ -54,7 +52,7 @@ public class JDBCTest {
 				}
 			}
 		}).start();
-		
+
 		(new Thread() {
 			public void run() {
 				try {
@@ -73,12 +71,15 @@ public class JDBCTest {
 				.getConnection("jdbc:neverland://localhost:50002/db");
 
 		Statement s = conn.createStatement();
-		for (Entry<String, String> e : SSBM.QUERIES.entrySet()) {
-			ResultSet rs = s.executeQuery(e.getValue());
-			ResultCombiner.printResultSet(rs, System.out);
+		while (true) {
+			for (Entry<String, String> e : SSBM.QUERIES.entrySet()) {
+				ResultSet rs = s.executeQuery(e.getValue());
+				//ResultCombiner.printResultSet(rs, System.out);
+			}
+			Thread.sleep(100);
+
 		}
-		
-		Thread.sleep(3600 * 1000);
+
 	}
 
 	@Test

@@ -65,12 +65,13 @@ public abstract class Rewriter {
 
 		try {
 			log.debug("Constructing rewriter from DB advertised by " + nn);
-			Class.forName(Constants.JDBC_DRIVER);
+			Class.forName(nn.getJdbcDriver());
 			Connection c = DriverManager.getConnection(nn.getJdbcUrl(),
 					nn.getJdbcUser(), nn.getJdbcPass());
 			DatabaseMetaData dmd = c.getMetaData();
 			Statement s = c.createStatement();
-			ResultSet rs = dmd.getTables(null, null, "%", null);
+			ResultSet rs = dmd.getTables(null, null, "%",
+					new String[] { "TABLE" });
 
 			while (rs.next()) {
 				String schemaName = rs.getString(2);
@@ -88,6 +89,7 @@ public abstract class Rewriter {
 
 				ResultSet pkSet = dmd.getPrimaryKeys(null, schemaName,
 						tableName);
+
 				String keyCol = null;
 				long minKey = 0;
 				long maxKey = 0;
@@ -129,8 +131,14 @@ public abstract class Rewriter {
 					ft.keyColMin = minKey;
 					ft.keyColMax = maxKey;
 
-					numShards = tableSize / shardSize;
-
+					if (shardSize > tableSize) {
+						numShards = 1;
+						log.warn("Shard size of " + shardSize
+								+ " greater than fact table size of "
+								+ tableSize + ", defaulting to shard amount 1.");
+					} else {
+						numShards = tableSize / shardSize;
+					}
 					factTables.put(schemaName, ft);
 				}
 			}
@@ -144,7 +152,7 @@ public abstract class Rewriter {
 		}
 
 		FactTable ft = factTables.entrySet().iterator().next().getValue();
-		log.info("Rewriting on " + ft  + " with " + numShards + " shards.") ;
+		log.info("Rewriting on " + ft + " with " + numShards + " shards.");
 
 		return new NotSoStupidRewriter(ft, numShards);
 	}
@@ -213,7 +221,7 @@ public abstract class Rewriter {
 			}
 
 			Expression oldWhere = ps.getWhere();
-			
+
 			for (int i = 0; i < numSubqueries; i++) {
 
 				long keyMin = factTableKeyMin + i

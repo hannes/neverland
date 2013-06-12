@@ -7,20 +7,23 @@ public class NeverlandNode implements Serializable {
 	@Override
 	public String toString() {
 		return "NeverlandNode [hostname=" + hostname + ", sessionId="
-				+ sessionId + ", jdbcUrl=" + jdbcUrl + ", load=" + load + "]";
+				+ sessionId + ", jdbcDriver=" + jdbcDriver + ", jdbcUrl="
+				+ jdbcUrl + ", load=" + load + "]";
 	}
 
-	private static final long serialVersionUID = 2L;
+	private static final long serialVersionUID = 3L;
 
 	private String jdbcUrl;
 	private String jdbcUser;
 	private String jdbcPass;
+	private String jdbcDriver;
 	private long sessionId;
 	private String hostname;
 	private double load;
 
-	public NeverlandNode(String hostname, long sessionId, String jdbcUrl,
-			String jdbcUser, String jdbcPass, double load) {
+	public NeverlandNode(String hostname, long sessionId, String jdbcDriver,
+			String jdbcUrl, String jdbcUser, String jdbcPass, double load) {
+		this.jdbcDriver = jdbcDriver;
 		this.jdbcUrl = jdbcUrl;
 		this.jdbcUser = jdbcUser;
 		this.jdbcPass = jdbcPass;
@@ -31,6 +34,10 @@ public class NeverlandNode implements Serializable {
 
 	public long getId() {
 		return sessionId;
+	}
+
+	public String getJdbcDriver() {
+		return jdbcDriver;
 	}
 
 	public String getJdbcUrl() {
@@ -44,7 +51,7 @@ public class NeverlandNode implements Serializable {
 	public String getJdbcPass() {
 		return jdbcPass;
 	}
-	
+
 	public String getHostname() {
 		return hostname;
 	}
@@ -63,7 +70,7 @@ public class NeverlandNode implements Serializable {
 
 	public void setHostname(String hostName2) {
 		this.hostname = hostName2;
-		
+
 	}
 
 }
