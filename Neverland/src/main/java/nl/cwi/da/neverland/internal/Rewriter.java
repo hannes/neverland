@@ -133,9 +133,6 @@ public abstract class Rewriter {
 
 					if (shardSize > tableSize) {
 						numShards = 1;
-						log.warn("Shard size of " + shardSize
-								+ " greater than fact table size of "
-								+ tableSize + ", defaulting to shard amount 1.");
 					} else {
 						numShards = tableSize / shardSize;
 					}

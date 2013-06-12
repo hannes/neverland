@@ -45,7 +45,7 @@ public class JDBCTest {
 		(new Thread() {
 			public void run() {
 				try {
-					Worker.main("-j jdbc:monetdb://localhost:50000/ssbm-sf1 -u monetdb -p monetdb"
+					Worker.main("-d nl.cwi.monetdb.jdbc.MonetDriver -j jdbc:monetdb://localhost:50000/ssbm-sf1 -u monetdb -p monetdb"
 							.split(" "));
 				} catch (JSAPException e) {
 					e.printStackTrace();
@@ -56,7 +56,7 @@ public class JDBCTest {
 		(new Thread() {
 			public void run() {
 				try {
-					Worker.main("-j jdbc:monetdb://localhost:50000/ssbm-sf1 -u monetdb -p monetdb"
+					Worker.main("-d nl.cwi.monetdb.jdbc.MonetDriver -j jdbc:monetdb://localhost:50000/ssbm-sf1 -u monetdb -p monetdb"
 							.split(" "));
 				} catch (JSAPException e) {
 					e.printStackTrace();
