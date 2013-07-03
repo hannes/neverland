@@ -59,7 +59,7 @@ public class Worker extends Thread implements Watcher {
 	@Override
 	public void run() {
 		try {
-			zkc = new ZooKeeper(zookeeper, 2000, this);
+			zkc = new ZooKeeper(zookeeper, Constants.ZK_TIMEOUT_MS, this);
 		} catch (IOException e) {
 			log.warn(e);
 		}

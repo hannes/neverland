@@ -22,5 +22,6 @@ public class Constants {
 	public static final int MONITOR_PORT = 50003;
 	public static final long DEFAULT_SHARD_SIZE = 1000000;
 	public static final int QUERYLOG_SIZE = 10;
+	public static final int ZK_TIMEOUT_MS = 10000;
 
 }

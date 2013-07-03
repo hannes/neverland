@@ -70,30 +70,32 @@ public abstract class Executor {
 			for (Entry<NeverlandNode, List<Subquery>> sentry : schedule
 					.entrySet()) {
 				final NeverlandNode nn = sentry.getKey();
+				synchronized (this) {
+					if (!dataSources.containsKey(nn.getId())) {
+						log.info("Opening new connection pool to "
+								+ nn.getJdbcUrl());
+						ComboPooledDataSource cpds = new ComboPooledDataSource();
+						try {
+							cpds.setDriverClass(nn.getJdbcDriver());
+						} catch (PropertyVetoException e) {
+							log.warn("Unable to load JDBC driver", e);
+						}
 
-				if (!dataSources.containsKey(nn.getId())) {
-					ComboPooledDataSource cpds = new ComboPooledDataSource();
-					try {
-						cpds.setDriverClass(nn.getJdbcDriver());
-					} catch (PropertyVetoException e) {
-						log.warn("Unable to load JDBC driver", e);
+						// JDBC login config, as advertised by worker
+						cpds.setJdbcUrl(nn.getJdbcUrl());
+						cpds.setUser(nn.getJdbcUser());
+						cpds.setPassword(nn.getJdbcPass());
+
+						// some config, rather arbitrary. however, number cpus?
+						cpds.setMinPoolSize(connectionsPerNode / 2);
+						cpds.setAcquireIncrement(1);
+						cpds.setMaxPoolSize(connectionsPerNode);
+						// TODO: investigate here...
+						cpds.setNumHelperThreads(10);
+
+						dataSources.put(nn.getId(), cpds);
 					}
-
-					// JDBC login config, as advertised by worker
-					cpds.setJdbcUrl(nn.getJdbcUrl());
-					cpds.setUser(nn.getJdbcUser());
-					cpds.setPassword(nn.getJdbcPass());
-
-					// some config, rather arbitrary. however, number cpus?
-					cpds.setMinPoolSize(connectionsPerNode/2);
-					cpds.setAcquireIncrement(1);
-					cpds.setMaxPoolSize(connectionsPerNode);
-					// TODO: investigate here...
-					cpds.setNumHelperThreads(10);
-
-					dataSources.put(nn.getId(), cpds);
 				}
-
 				final ComboPooledDataSource cpds = dataSources.get(nn.getId());
 
 				// right, so now execute all the queries
@@ -103,9 +105,7 @@ public abstract class Executor {
 							new Callable<ResultSet>() {
 								@Override
 								public ResultSet call() throws Exception {
-									// TODO: this is a test...and a very dirty hack
-									Thread.sleep(Math.round(Math.random()*1000));
-									
+
 									InternalResultSet crs = null;
 									Connection c = null;
 									Statement s = null;
