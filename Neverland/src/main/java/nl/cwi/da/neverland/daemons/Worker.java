@@ -11,6 +11,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Iterator;
+import java.util.UUID;
 
 import nl.cwi.da.neverland.internal.Constants;
 import nl.cwi.da.neverland.internal.NeverlandNode;
@@ -42,6 +43,8 @@ public class Worker extends Thread implements Watcher {
 
 	private String jdbcUser;
 	private String jdbcPass;
+	
+	private String uuid;
 
 	public Worker(String zooKeeper, String jdbcDriver, String jdbcUri,
 			String jdbcUser, String jdbcPass) {
@@ -50,6 +53,7 @@ public class Worker extends Thread implements Watcher {
 		this.jdbcUri = jdbcUri;
 		this.jdbcUser = jdbcUser;
 		this.jdbcPass = jdbcPass;
+		this.uuid = UUID.randomUUID().toString();
 	}
 
 	@Override
@@ -63,7 +67,7 @@ public class Worker extends Thread implements Watcher {
 		log.info("Neverland worker daemon starting. Advertising JDBC URI "
 				+ jdbcUri + " ...");
 
-		NeverlandNode thisNode = new NeverlandNode("localhost", 0, jdbcDriver,
+		NeverlandNode thisNode = new NeverlandNode("localhost", uuid, jdbcDriver,
 				jdbcUri, jdbcUser, jdbcPass, 0);
 
 		try {
@@ -110,7 +114,7 @@ public class Worker extends Thread implements Watcher {
 			if (workerState == Constants.WorkerState.normal) {
 				try {
 					thisNode.setLoad(myOsBean.getSystemLoadAverage());
-					thisNode.setId(zkc.getSessionId());
+					thisNode.setId(uuid);
 					zkc.setData(thisNodeKey,
 							SerializableUtils.toByteArray(thisNode), -1);
 

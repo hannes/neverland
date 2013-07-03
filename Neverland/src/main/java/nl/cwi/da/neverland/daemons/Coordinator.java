@@ -15,6 +15,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -96,9 +98,16 @@ public class Coordinator extends Thread implements Watcher {
 		this.zookeeper = zooKeeper;
 		this.jdbcPort = jdbcPort;
 		this.httpPort = httpPort;
-		this.executor = new Executor.MultiThreadedExecutor(100, 20);
+		this.executor = new Executor.MultiThreadedExecutor(100, 10);
 		this.scenario = scenario;
 		this.shardSize = shardSize;
+		this.rewriter = null;
+	}
+
+	public Coordinator(NeverlandScenario scenario, String zooKeeper,
+			int jdbcPort, int httpPort, long shardSize, Rewriter rewriter) {
+		this(scenario, zooKeeper, jdbcPort, httpPort, shardSize);
+		this.rewriter = rewriter;
 	}
 
 	private Constants.CoordinatorState coordinatorState = Constants.CoordinatorState.initializing;
@@ -118,43 +127,40 @@ public class Coordinator extends Thread implements Watcher {
 		// setup neverland according to scenario
 		switch (scenario) {
 		case baseline:
+			// overwrite more clever rewriter
 			this.rewriter = new Rewriter.StupidRewriter();
 			this.scheduler = new Scheduler.RoundRobinScheduler();
 			this.combiner = new ResultCombiner.PassthruCombiner();
 			break;
 
 		case loadbalance:
+			// overwrite more clever rewriter
 			this.rewriter = new Rewriter.StupidRewriter();
 			this.scheduler = new Scheduler.LoadBalancingScheduler();
 			this.combiner = new ResultCombiner.PassthruCombiner();
 			break;
 
 		case rewriteround:
-			this.rewriter = null; // will be filled later
 			this.scheduler = new Scheduler.RoundRobinScheduler();
 			this.combiner = new ResultCombiner.SmartResultCombiner();
 			break;
 
 		case rewriterandom:
-			this.rewriter = null; // will be filled later
 			this.scheduler = new Scheduler.RandomScheduler();
 			this.combiner = new ResultCombiner.SmartResultCombiner();
 			break;
 
 		case rewriteload:
-			this.rewriter = null; // will be filled later
 			this.scheduler = new Scheduler.LoadBalancingScheduler();
 			this.combiner = new ResultCombiner.SmartResultCombiner();
 			break;
 
 		case sticky:
-			this.rewriter = null; // will be filled later
 			this.scheduler = new Scheduler.StickyScheduler();
 			this.combiner = new ResultCombiner.SmartResultCombiner();
 			break;
 
 		case neverland:
-			this.rewriter = null; // will be filled later
 			this.scheduler = new Scheduler.StickyLoadBalancingScheduler();
 			this.combiner = new ResultCombiner.SmartResultCombiner();
 			break;
@@ -185,6 +191,9 @@ public class Coordinator extends Thread implements Watcher {
 					if (this.rewriter == null) {
 						this.rewriter = Rewriter.constructRewriterFromDb(
 								nodes.get(0), shardSize);
+						log.info("Using auto-generated rewriter: "
+								+ this.rewriter);
+
 					}
 					coordinatorState = Constants.CoordinatorState.normal;
 
@@ -235,7 +244,7 @@ public class Coordinator extends Thread implements Watcher {
 		// TODO: do we need this at all?
 		// maybe if we want to react if a node goes down
 
-		//log.warn(event);
+		// log.warn(event);
 	}
 
 	public static class NeverlandScenarioParser extends StringParser {
@@ -290,6 +299,14 @@ public class Coordinator extends Thread implements Watcher {
 				.setHelp(
 						"TCP port number for the HTTP monitoring server to listen on"));
 
+		jsap.registerParameter(new FlaggedOption("hardcoderewrite")
+				.setShortFlag('r')
+				.setLongFlag("hardcode-rewrite")
+				.setStringParser(JSAP.STRING_PARSER)
+				.setRequired(false)
+				.setHelp(
+						"Hard-code table, column and key range to rwrite on. Format: table.col[colmin:colmax]"));
+
 		jsap.registerParameter(new FlaggedOption("scenario").setShortFlag('s')
 				.setLongFlag("neverland-scenario")
 				.setStringParser(new NeverlandScenarioParser())
@@ -332,10 +349,31 @@ public class Coordinator extends Thread implements Watcher {
 				// don't care
 			}
 		}
+
+		Rewriter rw = null;
+		if (res.contains("hardcoderewrite")) {
+			// table.col[colmin:colmax]
+			String rewritedef = res.getString("hardcoderewrite");
+			Pattern rewritedefpattern = Pattern
+					.compile("^\\s*(\\w+).(\\w+)\\[(\\d+):(\\d+)\\]\\s*$");
+			Matcher rewritedefmatcher = rewritedefpattern.matcher(rewritedef);
+
+			if (rewritedefmatcher.matches()) {
+				rw = new Rewriter.NotSoStupidRewriter(
+						rewritedefmatcher.group(1), rewritedefmatcher.group(2),
+						Long.parseLong(rewritedefmatcher.group(3)),
+						Long.parseLong(rewritedefmatcher.group(4)),
+						res.getLong("shardsize"));
+				log.info("Using hard-coded rewriter: " + rw);
+
+			} else {
+				log.warn("Rewrite hardcode given, but not used due to format");
+			}
+		}
+
 		new Coordinator(scenario, res.getInetAddress("zkhost").getHostAddress()
 				+ ":" + res.getInt("zkport"), res.getInt("jdbcport"),
-				res.getInt("httpport"), res.getLong("shardsize")).start();
-
+				res.getInt("httpport"), res.getLong("shardsize"), rw).start();
 	}
 
 	public static void startInternalZookeeperServer(final int port) {

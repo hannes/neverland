@@ -45,7 +45,7 @@ public class CombinerTest {
 			q.setSubqueries(rw.rewrite(q, 10));
 			Scheduler.SubquerySchedule schedule = new StupidScheduler()
 					.schedule(q, Arrays.asList(new NeverlandNode("localhost",
-							42, "nl.cwi.monetdb.jdbc.MonetDriver",
+							"42", "nl.cwi.monetdb.jdbc.MonetDriver",
 							"jdbc:monetdb://localhost:50000/ssbm-sf1",
 							"monetdb", "monetdb", 0)));
 

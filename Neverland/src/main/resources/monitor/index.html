@@ -54,20 +54,21 @@ body {
 
 	<script id="node-template" type="text/x-handlebars-template">
 	<tr><th>Hostname</th><th>JDBC</th><th>Load Avg.</th></tr>
-	{{#.}}
+	{{#nodes}}
 		<tr><th>{{hostname}}</th><td>{{jdbcUrl}}</td><td>{{load}}</td></tr>
-	{{/.}}
+	{{/nodes}}
+	<tr><td colspan="3">Node Count: {{numNodes}}</td></tr>
 	</script>
 
 	<script id="query-template" type="text/x-handlebars-template">
-	{{#.}}
+	{{#queries}}
 		<tbody>
 			<tr><th colspan="4" class="sql-query">{{sqlQuery}}</th></tr>
 			{{#subqueries}}
 				<tr><th>{{factTable}}[{{sliceMin}}:{{sliceMax}}]</th><td>{{assignedNode.hostname}} ({{assignedNode.sessionId}})</td><td>{{timeTaken}}s</td><td>{{resultSetSize}}</td></tr>
 			{{/subqueries}}
 		</tbody>
-	{{/.}}
+	{{/queries}}
 	</script>
 
 
@@ -84,25 +85,9 @@ body {
 						return 'p:' + x;
 					});
 
-					$('#nodes').html(nodetpl(data.nodes));
-					$('#queries').html(querytpl(data.queries));
-
-					/*
-					$('.sql-query').each(function() {
-					    var $this = $(this),
-					        $code = $this.html();
-
-					    $this.empty();
-
-					    var myCodeMirror = CodeMirror(this, {
-					        value: $code,
-					        mode: 'sql',
-					        lineNumbers: false,
-					        readOnly:  "nocursor" ,
-					        lineWrapping: true
-					    });
-
-					});*/
+					$('#nodes').html(nodetpl(data));
+					$('#queries').html(querytpl(data));
+					
 				},
 				complete : function() {
 					setTimeout(worker, 1000);

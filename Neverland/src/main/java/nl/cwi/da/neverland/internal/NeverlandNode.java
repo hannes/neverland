@@ -17,11 +17,11 @@ public class NeverlandNode implements Serializable {
 	private String jdbcUser;
 	private String jdbcPass;
 	private String jdbcDriver;
-	private long sessionId;
+	private String sessionId;
 	private String hostname;
 	private double load;
 
-	public NeverlandNode(String hostname, long sessionId, String jdbcDriver,
+	public NeverlandNode(String hostname, String sessionId, String jdbcDriver,
 			String jdbcUrl, String jdbcUser, String jdbcPass, double load) {
 		this.jdbcDriver = jdbcDriver;
 		this.jdbcUrl = jdbcUrl;
@@ -32,7 +32,7 @@ public class NeverlandNode implements Serializable {
 		this.hostname = hostname;
 	}
 
-	public long getId() {
+	public String getId() {
 		return sessionId;
 	}
 
@@ -64,7 +64,7 @@ public class NeverlandNode implements Serializable {
 		this.load = systemLoadAverage;
 	}
 
-	public void setId(long sessionId2) {
+	public void setId(String sessionId2) {
 		this.sessionId = sessionId2;
 	}
 

@@ -29,7 +29,7 @@ public abstract class Executor {
 			Scheduler.SubquerySchedule schedule) throws NeverlandException;
 
 	public static class MultiThreadedExecutor extends Executor {
-		private Map<Long, ComboPooledDataSource> dataSources = new HashMap<Long, ComboPooledDataSource>();
+		private Map<String, ComboPooledDataSource> dataSources = new HashMap<String, ComboPooledDataSource>();
 		private static Logger log = Logger
 				.getLogger(MultiThreadedExecutor.class);
 
@@ -85,7 +85,7 @@ public abstract class Executor {
 					cpds.setPassword(nn.getJdbcPass());
 
 					// some config, rather arbitrary. however, number cpus?
-					cpds.setMinPoolSize(0);
+					cpds.setMinPoolSize(connectionsPerNode/2);
 					cpds.setAcquireIncrement(1);
 					cpds.setMaxPoolSize(connectionsPerNode);
 					// TODO: investigate here...
@@ -103,6 +103,9 @@ public abstract class Executor {
 							new Callable<ResultSet>() {
 								@Override
 								public ResultSet call() throws Exception {
+									// TODO: this is a test...and a very dirty hack
+									Thread.sleep(Math.round(Math.random()*1000));
+									
 									InternalResultSet crs = null;
 									Connection c = null;
 									Statement s = null;

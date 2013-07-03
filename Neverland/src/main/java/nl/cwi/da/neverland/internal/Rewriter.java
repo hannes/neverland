@@ -149,33 +149,30 @@ public abstract class Rewriter {
 		}
 
 		FactTable ft = factTables.entrySet().iterator().next().getValue();
-		log.info("Rewriting on " + ft + " with " + numShards + " shards.");
-
 		return new NotSoStupidRewriter(ft, numShards);
 	}
 
 	public static class NotSoStupidRewriter extends Rewriter {
-		private String factTableName;
-		private String factTableKey;
-		private long factTableKeyMin;
-		private long factTableKeyMax;
+
+		private FactTable factTable;
 		private long numShards;
 
-		public NotSoStupidRewriter(FactTable ft, long numShards) {
-			this.factTableName = ft.name;
-			this.factTableKey = ft.keyColumn;
-			this.factTableKeyMin = ft.keyColMin;
-			this.factTableKeyMax = ft.keyColMax;
+		public NotSoStupidRewriter(String factTableName, String factTableKey,
+				long factTableKeyMin, long factTableKeyMax, long numShards) {
+
+			factTable = new FactTable();
+			factTable.name = factTableName;
+			factTable.keyColumn = factTableKey;
+			factTable.keyColMin = factTableKeyMin;
+			factTable.keyColMax = factTableKeyMax;
+
 			this.numShards = numShards;
 		}
 
-		public NotSoStupidRewriter(String factTable, String factTableKey,
-				int factTableKeyMin, int factTableKeyMax, long numShards) {
-			this.factTableName = factTable.toLowerCase();
-			this.factTableKey = factTableKey;
-			this.factTableKeyMin = factTableKeyMin;
-			this.factTableKeyMax = factTableKeyMax;
-			this.numShards = numShards;
+		public NotSoStupidRewriter(FactTable ft, long sNumShards) {
+			factTable = ft;
+			numShards = sNumShards;
+
 		}
 
 		private static Logger log = Logger.getLogger(NotSoStupidRewriter.class);
@@ -191,8 +188,8 @@ public abstract class Rewriter {
 			// overwrite numSubqueries with numShards from factTable
 			numSubqueries = numShards;
 
-			if (!q.getTables().contains(factTableName)) {
-				log.warn("Could not find fact table " + factTableName + " in "
+			if (!q.getTables().contains(factTable.name)) {
+				log.warn("Could not find fact table " + factTable.name + " in "
 						+ q.getSql());
 				return Arrays.asList(new Subquery(q.getSql(), 0));
 			}
@@ -221,17 +218,18 @@ public abstract class Rewriter {
 
 			for (int i = 0; i < numSubqueries; i++) {
 
-				long keyMin = factTableKeyMin + i
-						* ((factTableKeyMax - factTableKeyMin) / numSubqueries);
+				long keyMin = factTable.keyColMin
+						+ i
+						* ((factTable.keyColMax - factTable.keyColMin) / numSubqueries);
 				long keyMax = Math
-						.min(factTableKeyMin
+						.min(factTable.keyColMin
 								+ (i + 1)
-								* ((factTableKeyMax - factTableKeyMin) / numSubqueries),
-								factTableKeyMax);
+								* ((factTable.keyColMax - factTable.keyColMin) / numSubqueries),
+								factTable.keyColMax);
 
 				// last slice is extended to the remainder of the division
 				if (i == numSubqueries - 1) {
-					keyMax = factTableKeyMax;
+					keyMax = factTable.keyColMax;
 				}
 
 				if (keyMin == keyMax) {
@@ -243,8 +241,8 @@ public abstract class Rewriter {
 				 * COUNT(*) MIN(expression) MAX(expression) SUM(expression)
 				 **/
 
-				Column c = new Column(new Table(factTableName, null),
-						factTableKey);
+				Column c = new Column(new Table(factTable.name, null),
+						factTable.keyColumn);
 
 				BinaryExpression bottomRange;
 				if (i == 0) {
@@ -281,11 +279,17 @@ public abstract class Rewriter {
 				subqueries.add(sq);
 				sq.setSliceMin(keyMin);
 				sq.setSliceMax(keyMax);
-				sq.setFactTable(factTableName);
+				sq.setFactTable(factTable.name);
 			}
 
 			// right, let's rock!
 			return subqueries;
+		}
+
+		@Override
+		public String toString() {
+			return "Rewriter [factTable=" + factTable
+					+ ", numShards=" + numShards + "]";
 		}
 	}
 }
