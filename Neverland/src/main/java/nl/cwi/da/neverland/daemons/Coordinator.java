@@ -290,14 +290,11 @@ public class Coordinator extends Thread implements Watcher {
 				.setHelp(
 						"TCP port number for the HTTP monitoring server to listen on"));
 
-		jsap.registerParameter(new FlaggedOption("shardsize")
-				.setShortFlag('d')
-				.setLongFlag("shard-size")
-				.setStringParser(JSAP.LONG_PARSER)
+		jsap.registerParameter(new FlaggedOption("shardsize").setShortFlag('d')
+				.setLongFlag("shard-size").setStringParser(JSAP.LONG_PARSER)
 				.setRequired(false)
 				.setDefault(Long.toString(Constants.DEFAULT_SHARD_SIZE))
-				.setHelp(
-						"TCP port number for the HTTP monitoring server to listen on"));
+				.setHelp("Size of the fact table shards"));
 
 		jsap.registerParameter(new FlaggedOption("hardcoderewrite")
 				.setShortFlag('r')
@@ -330,7 +327,6 @@ public class Coordinator extends Thread implements Watcher {
 			while (errs.hasNext()) {
 				System.err.println(errs.next());
 			}
-
 			System.err.println("Usage: " + jsap.getUsage() + "\nParameters: "
 					+ jsap.getHelp());
 			System.exit(-1);
@@ -352,7 +348,6 @@ public class Coordinator extends Thread implements Watcher {
 
 		Rewriter rw = null;
 		if (res.contains("hardcoderewrite")) {
-			// table.col[colmin:colmax]
 			String rewritedef = res.getString("hardcoderewrite");
 			Pattern rewritedefpattern = Pattern
 					.compile("^\\s*(\\w+).(\\w+)\\[(\\d+):(\\d+)\\]\\s*$");

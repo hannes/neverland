@@ -17,6 +17,7 @@ import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.select.FromItem;
 import net.sf.jsqlparser.statement.select.FromItemVisitor;
 import net.sf.jsqlparser.statement.select.Join;
+import net.sf.jsqlparser.statement.select.Limit;
 import net.sf.jsqlparser.statement.select.PlainSelect;
 import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.select.SelectExpressionItem;
@@ -42,7 +43,7 @@ public class Query {
 	private Map<Integer, Boolean> groupCols = new HashMap<Integer, Boolean>();
 	private Map<Integer, AggregationType> aggrCols = new HashMap<Integer, AggregationType>();
 	private List<String> tables = new ArrayList<String>();
-	
+
 	// transient to keep them from being serialized
 	private transient Statement parsedQuery = null;
 	private transient List<PlainSelect> selects = new ArrayList<PlainSelect>();
@@ -250,5 +251,23 @@ public class Query {
 
 	public void setSubqueries(List<Subquery> subqueries) {
 		this.subqueries = subqueries;
+	}
+
+	public boolean needsSorting() {
+		@SuppressWarnings("rawtypes")
+		List obe = getSingleSelect().getOrderByElements();
+		if (obe == null) {
+			return false;
+		}
+		return obe.size() > 0;
+
+	}
+
+	public boolean needsLimiting() {
+		Limit l = getSingleSelect().getLimit();
+		if (l == null) {
+			return false;
+		}
+		return l.getOffset() > 0 || l.getRowCount() > 0;
 	}
 }

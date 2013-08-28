@@ -214,7 +214,30 @@ public class CombinerTest {
 	}
 
 	@Test
-	public void order() throws NeverlandException, SQLException {
+	public void orderSingle() throws NeverlandException, SQLException {
+		Query q = new Query("select a from table1 order by a");
+		TestResultSet rs1 = new TestResultSet(al("a"), al(Types.INTEGER),
+				al("INT"), 4);
+
+		rs1.setColumn(1, alo(1, 4, 3, 2));
+		rss.add(rs1);
+
+		ResultSet rs = r.combine(q, rss);
+
+		rs.next();
+		assertEquals(1, rs.getInt(1));
+		rs.next();
+		assertEquals(2, rs.getInt(1));
+		rs.next();
+		assertEquals(3, rs.getInt(1));
+		rs.next();
+		assertEquals(4, rs.getInt(1));
+
+		assertFalse(rs.next());
+	}
+
+	@Test
+	public void orderMulti() throws NeverlandException, SQLException {
 		Query q = new Query(
 				"select sum(a),b,c from table1 group by b,c order by  b, c desc");
 		TestResultSet rs1 = new TestResultSet(al("sum_a", "b", "c"), al(
@@ -252,6 +275,46 @@ public class CombinerTest {
 		assertEquals(rs.getInt(1), 4);
 		assertEquals(rs.getInt(2), 3);
 		assertEquals(rs.getInt(3), 1);
+
+		assertFalse(rs.next());
+	}
+
+	@Test
+	public void limit() throws NeverlandException, SQLException {
+		Query q = new Query("select a from table1  limit 3 offset 1");
+		TestResultSet rs1 = new TestResultSet(al("a"), al(Types.INTEGER),
+				al("INT"), 5);
+
+		rs1.setColumn(1, alo(1, 2, 3, 4, 5));
+		rss.add(rs1);
+
+		ResultSet rs = r.combine(q, rss);
+
+		rs.next();
+		assertEquals(2, rs.getInt(1));
+		rs.next();
+		assertEquals(3, rs.getInt(1));
+		rs.next();
+		assertEquals(4, rs.getInt(1));
+
+		assertFalse(rs.next());
+	}
+
+	@Test
+	public void limitOrder() throws NeverlandException, SQLException {
+		Query q = new Query("select a from table1 order by a limit 3 offset 1");
+		TestResultSet rs1 = new TestResultSet(al("a"), al(Types.INTEGER),
+				al("INT"), 5);
+
+		rs1.setColumn(1, alo(1, 3, 5, 4, 2));
+		rss.add(rs1);
+		ResultSet rs = r.combine(q, rss);
+		rs.next();
+		assertEquals(2, rs.getInt(1));
+		rs.next();
+		assertEquals(3, rs.getInt(1));
+		rs.next();
+		assertEquals(4, rs.getInt(1));
 
 		assertFalse(rs.next());
 	}
@@ -356,7 +419,7 @@ public class CombinerTest {
 
 		int size = 0;
 		while (rs.next()) {
-			assertEquals(rs.getInt(1), 11);
+			assertEquals(11, rs.getInt(1));
 			size++;
 		}
 		assertEquals(size, 1);
@@ -430,13 +493,13 @@ public class CombinerTest {
 		TestResultSet rs3 = new TestResultSet(rs1);
 
 		rs1.setColumn(1, alo(5.4));
-		rs1.setColumn(2, alo(2));
+		rs1.setColumn(2, alo(2L));
 
 		rs2.setColumn(1, alo(6.23));
-		rs2.setColumn(2, alo(1));
+		rs2.setColumn(2, alo(1L));
 
 		rs3.setColumn(1, alo(2.5));
-		rs3.setColumn(2, alo(10));
+		rs3.setColumn(2, alo(10L));
 
 		rss.add(rs1);
 		rss.add(rs2);
@@ -537,8 +600,8 @@ public class CombinerTest {
 	public void floatTest() throws NeverlandException, SQLException {
 		Query q = new Query("select max(a) from table1");
 
-		TestResultSet rs1 = new TestResultSet(al("count_star"),
-				al(Types.FLOAT), al("FLOAT"), 1);
+		TestResultSet rs1 = new TestResultSet(al("max_a"), al(Types.FLOAT),
+				al("FLOAT"), 1);
 
 		TestResultSet rs2 = new TestResultSet(rs1);
 
@@ -549,6 +612,8 @@ public class CombinerTest {
 		rss.add(rs2);
 
 		ResultSet rs = r.combine(q, rss);
+
+		rs.beforeFirst();
 
 		int size = 0;
 		while (rs.next()) {

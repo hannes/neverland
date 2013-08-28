@@ -14,7 +14,7 @@ public class TestResultSet extends InternalResultSet {
 	public TestResultSet() throws SQLException {
 		super();
 	}
-	
+
 	public TestResultSet(TestResultSet dad) throws SQLException {
 		super(dad);
 		beforeFirst();
@@ -41,20 +41,13 @@ public class TestResultSet extends InternalResultSet {
 			}
 			insertRow();
 		}
-		moveToCurrentRow();
 		beforeFirst();
 	}
 
 	public void setColumn(int c, List<Object> values) throws SQLException {
-		if (values.size() > size()) {
-			throw new RuntimeException("Out of capacity");
+		for (int r = 1; r <= values.size(); r++) {
+			setObject(c, r, values.get(r - 1));
 		}
-		first();
-		for (int r = 0; r < values.size(); r++) {
-			updateObject(c, values.get(r));
-			updateRow();
-			next();
-		}
-		beforeFirst();
+		this.beforeFirst();
 	}
 }

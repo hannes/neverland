@@ -200,8 +200,11 @@ public abstract class Rewriter {
 			}
 
 			List<Subquery> subqueries = new ArrayList<Subquery>();
+			// copy q to avoid messing up the original
+			q = new Query(q.getSql());
 
 			PlainSelect ps = q.getSingleSelect();
+
 			if (q.needsCountsTable()) {
 				SelectExpressionItem groupcount = new SelectExpressionItem();
 				groupcount.setAlias(Constants.GROUP_NAME);
@@ -288,8 +291,8 @@ public abstract class Rewriter {
 
 		@Override
 		public String toString() {
-			return "Rewriter [factTable=" + factTable
-					+ ", numShards=" + numShards + "]";
+			return "Rewriter [factTable=" + factTable + ", numShards="
+					+ numShards + "]";
 		}
 	}
 }

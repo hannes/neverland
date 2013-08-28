@@ -13,6 +13,7 @@ import java.util.Map;
 
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.schema.Column;
+import net.sf.jsqlparser.statement.select.Limit;
 import net.sf.jsqlparser.statement.select.OrderByElement;
 
 public class InternalResultSet extends AbstractResultSet {
@@ -50,12 +51,20 @@ public class InternalResultSet extends AbstractResultSet {
 		// move along...
 	}
 
+	public ResultSet addRow(Object[] row) {
+		rows.add(row);
+		return this;
+	}
+
 	public InternalResultSet(ResultSet source) throws SQLException {
 		if (source instanceof InternalResultSet) {
 			rows = new ArrayList<Object[]>(((InternalResultSet) source).size());
 		}
 		setMetaData(source.getMetaData());
 		add(source);
+		if (source instanceof InternalResultSet) {
+			source.beforeFirst();
+		}
 	}
 
 	protected void setMetaData(ResultSetMetaData metaData) throws SQLException {
@@ -165,6 +174,20 @@ public class InternalResultSet extends AbstractResultSet {
 		insertRow[jdbcColIndex - 1] = value;
 	}
 
+	// only really used in test cases
+	public InternalResultSet setObject(int jdbcColIndex, int jdbcRowIndex,
+			Object value) throws SQLException {
+		if (jdbcColIndex > columns.size()) {
+			throw new SQLException("Col index out of bounds");
+		}
+		if (jdbcRowIndex > size()) {
+			throw new SQLException("Row index out of bounds (size: " + size()
+					+ ", index:" + jdbcRowIndex);
+		}
+		rows.get(jdbcRowIndex - 1)[jdbcColIndex - 1] = value;
+		return this;
+	}
+
 	public void insertRow() throws SQLException {
 		if (!onInsertRow) {
 			throw new SQLException("Updates only in insert mode");
@@ -174,7 +197,7 @@ public class InternalResultSet extends AbstractResultSet {
 	}
 
 	private boolean isRowValid() {
-		return curRow < rows.size();
+		return curRow >= 0 && curRow < rows.size();
 	}
 
 	public int getInt(int jdbcColIndex) throws SQLException {
@@ -242,6 +265,22 @@ public class InternalResultSet extends AbstractResultSet {
 			throws SQLException {
 		getCol(i).dbType = columnTypeName;
 		return this;
+	}
+
+	public InternalResultSet limit(Query q) throws SQLException {
+		Limit l = q.getSingleSelect().getLimit();
+
+		if (l.getOffset() + l.getRowCount() > rows.size()) {
+			throw new SQLException("Trying to get " + l
+					+ " from result set with " + rows.size() + " rows.");
+		}
+		InternalResultSet result = new InternalResultSet();
+		result.setMetaData(this.getMetaData());
+		for (int row = (int) l.getOffset(); row < Math.min(
+				l.getOffset() + l.getRowCount(), rows.size()); row++) {
+			result.addRow(rows.get(row));
+		}
+		return result;
 	}
 
 	public InternalResultSet sort(Query q) throws SQLException {

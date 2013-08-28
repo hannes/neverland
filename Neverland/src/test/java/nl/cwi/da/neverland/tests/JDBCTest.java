@@ -11,11 +11,14 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 import java.util.Map.Entry;
 
 import nl.cwi.da.neverland.client.NeverlandResultSet;
 import nl.cwi.da.neverland.daemons.Coordinator;
 import nl.cwi.da.neverland.daemons.Worker;
+import nl.cwi.da.neverland.internal.BDB;
+import nl.cwi.da.neverland.internal.ResultCombiner;
 import nl.cwi.da.neverland.internal.SSBM;
 
 import org.junit.Test;
@@ -25,7 +28,7 @@ import com.martiansoftware.jsap.JSAPException;
 public class JDBCTest {
 
 	@Test
-	public void testConnection() throws InterruptedException,
+	public void testConnectionSSBM() throws InterruptedException,
 			ClassNotFoundException, SQLException {
 
 		// bring up coordinator
@@ -74,8 +77,65 @@ public class JDBCTest {
 		while (true) {
 			for (Entry<String, String> e : SSBM.QUERIES.entrySet()) {
 				ResultSet rs = s.executeQuery(e.getValue());
-				//ResultCombiner.printResultSet(rs, System.out);
+				// ResultCombiner.printResultSet(rs, System.out);
 			}
+			Thread.sleep(100);
+
+		}
+
+	}
+
+	@Test
+	public void testConnectionBDB() throws InterruptedException,
+			ClassNotFoundException, SQLException {
+
+		// bring up coordinator
+		(new Thread() {
+			public void run() {
+				try {
+					Coordinator.main("-r uservisits.id[1:10000] -d 1000"
+							.split(" "));
+				} catch (JSAPException e) {
+					e.printStackTrace();
+				}
+			}
+		}).start();
+
+		Thread.sleep(1000);
+
+		// bring up 2 workers
+		(new Thread() {
+			public void run() {
+				try {
+					Worker.main("-d nl.cwi.monetdb.jdbc.MonetDriver -j jdbc:monetdb://localhost:50000/bdb-small -u monetdb -p monetdb"
+							.split(" "));
+				} catch (JSAPException e) {
+					e.printStackTrace();
+				}
+			}
+		}).start();
+
+		(new Thread() {
+			public void run() {
+				try {
+					Worker.main("-d nl.cwi.monetdb.jdbc.MonetDriver -j jdbc:monetdb://localhost:50000/bdb-small -u monetdb -p monetdb"
+							.split(" "));
+				} catch (JSAPException e) {
+					e.printStackTrace();
+				}
+			}
+		}).start();
+
+		Thread.sleep(5000);
+
+		Class.forName("nl.cwi.da.neverland.client.NeverlandDriver");
+		Connection conn = DriverManager
+				.getConnection("jdbc:neverland://localhost:50002/db");
+
+		Statement s = conn.createStatement();
+		while (true) {
+			ResultSet rs = s.executeQuery(BDB.Q03a);
+			ResultCombiner.printResultSet(rs, System.out);
 			Thread.sleep(100);
 
 		}

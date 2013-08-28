@@ -13,6 +13,8 @@ import java.util.Map.Entry;
 import org.apache.log4j.Logger;
 
 public abstract class ResultCombiner {
+	private static Logger log = Logger.getLogger(ResultCombiner.class);
+
 	public abstract ResultSet combine(Query q, List<ResultSet> sets)
 			throws NeverlandException;
 
@@ -21,15 +23,37 @@ public abstract class ResultCombiner {
 		private ResultCombiner merge = new AggregationResultCombiner();
 
 		@Override
-		public ResultSet combine(Query q, List<ResultSet> sets)
+		public InternalResultSet combine(Query q, List<ResultSet> sets)
 				throws NeverlandException {
 
+			InternalResultSet rs = null;
 			if (q.isSingleSelect() && q.needsAggregation()) {
-				return merge.combine(q, sets);
-			} else
-				return concat.combine(q, sets);
-		}
+				rs = (InternalResultSet) merge.combine(q, sets);
+			} else {
+				rs = (InternalResultSet) concat.combine(q, sets);
+			}
+			if (q.needsSorting()) {
+				try {
+					rs = rs.sort(q);
+				} catch (SQLException e) {
+					throw (new NeverlandException(e));
+				}
+			}
+			if (q.needsLimiting()) {
+				try {
+					rs = rs.limit(q);
+				} catch (SQLException e) {
+					throw (new NeverlandException(e));
+				}
+			}
 
+			if (q.needsLimiting() && !q.needsSorting()) {
+				log.warn("Limiting an unsorted result, not a good idea for "
+						+ q.getSql());
+			}
+			rs.beforeFirst();
+			return rs;
+		}
 	}
 
 	public static class AggregationResultCombiner extends ResultCombiner {
@@ -37,8 +61,10 @@ public abstract class ResultCombiner {
 		private static Logger log = Logger
 				.getLogger(AggregationResultCombiner.class);
 
-		// this used to extend HashMap, but we found that to take too long to
-		// instantiate hence, this is optimized to wrap a simple array of values
+		// this used to extend HashMap, but we found that to take too long
+		// to
+		// instantiate hence, this is optimized to wrap a simple array of
+		// values
 		// and otherwise behave the same
 		private static class Aggregation {
 			protected Object[] values;
@@ -158,7 +184,7 @@ public abstract class ResultCombiner {
 		}
 
 		@Override
-		public ResultSet combine(Query q, List<ResultSet> sets)
+		public InternalResultSet combine(Query q, List<ResultSet> sets)
 				throws NeverlandException {
 
 			if (sets.size() < 1) {
@@ -256,7 +282,6 @@ public abstract class ResultCombiner {
 				crs.moveToCurrentRow();
 				crs.beforeFirst();
 
-				crs.sort(q);
 			} catch (SQLException e) {
 				throw new NeverlandException("Failed to combine results for "
 						+ q, e);
@@ -269,7 +294,7 @@ public abstract class ResultCombiner {
 	public static class ConcatResultCombiner extends ResultCombiner {
 
 		@Override
-		public ResultSet combine(Query q, List<ResultSet> sets)
+		public InternalResultSet combine(Query q, List<ResultSet> sets)
 				throws NeverlandException {
 			InternalResultSet crs = null;
 
@@ -279,7 +304,6 @@ public abstract class ResultCombiner {
 
 			try {
 				crs = new InternalResultSet(sets.get(0));
-				crs.add(sets.get(0));
 				for (int r = 1; r < sets.size(); r++) {
 					crs.add(sets.get(r));
 				}
@@ -364,6 +388,7 @@ public abstract class ResultCombiner {
 				}
 				ps.print("\n");
 			}
+			ps.print("\n");
 			rs.beforeFirst();
 		} catch (SQLException e) {
 			e.printStackTrace();
