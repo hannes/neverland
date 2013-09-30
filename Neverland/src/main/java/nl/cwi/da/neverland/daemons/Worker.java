@@ -1,9 +1,9 @@
 package nl.cwi.da.neverland.daemons;
 
-import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.OperatingSystemMXBean;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -17,37 +17,37 @@ import nl.cwi.da.neverland.internal.Constants;
 import nl.cwi.da.neverland.internal.NeverlandNode;
 
 import org.apache.log4j.Logger;
-import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooDefs.Ids;
-import org.apache.zookeeper.ZooKeeper;
 
 import com.martiansoftware.jsap.FlaggedOption;
 import com.martiansoftware.jsap.JSAP;
 import com.martiansoftware.jsap.JSAPException;
 import com.martiansoftware.jsap.JSAPResult;
 import com.mchange.v2.ser.SerializableUtils;
+import com.twitter.common.base.Supplier;
+import com.twitter.common.quantity.Amount;
+import com.twitter.common.quantity.Time;
+import com.twitter.common.zookeeper.Group;
+import com.twitter.common.zookeeper.Group.Membership;
+import com.twitter.common.zookeeper.ZooKeeperClient;
 
 public class Worker extends Thread implements Watcher {
 
-	protected ZooKeeper zkc;
-
 	private static Logger log = Logger.getLogger(Worker.class);
-
-	private Constants.WorkerState workerState = Constants.WorkerState.initializing;
 
 	private String jdbcUri;
 	private String jdbcDriver;
-	private String zookeeper;
+	private InetSocketAddress zookeeper;
 
 	private String jdbcUser;
 	private String jdbcPass;
-	
+
 	private String uuid;
 
-	public Worker(String zooKeeper, String jdbcDriver, String jdbcUri,
-			String jdbcUser, String jdbcPass) {
+	public Worker(InetSocketAddress zooKeeper, String jdbcDriver,
+			String jdbcUri, String jdbcUser, String jdbcPass) {
 		this.zookeeper = zooKeeper;
 		this.jdbcDriver = jdbcDriver;
 		this.jdbcUri = jdbcUri;
@@ -56,19 +56,34 @@ public class Worker extends Thread implements Watcher {
 		this.uuid = UUID.randomUUID().toString();
 	}
 
+	private ZooKeeperClient tzkc;
+	private Group zkg;
+
+	private static class BS implements Supplier<byte[]> {
+		private byte[] data;
+
+		public BS() {
+		}
+
+		public BS set(byte[] data) {
+			this.data = data;
+			return this;
+		}
+
+		@Override
+		public byte[] get() {
+			return data;
+		}
+	}
+
 	@Override
 	public void run() {
-		try {
-			zkc = new ZooKeeper(zookeeper, Constants.ZK_TIMEOUT_MS, this);
-		} catch (IOException e) {
-			log.warn(e);
-		}
 
 		log.info("Neverland worker daemon starting. Advertising JDBC URI "
 				+ jdbcUri + " ...");
 
-		NeverlandNode thisNode = new NeverlandNode("localhost", uuid, jdbcDriver,
-				jdbcUri, jdbcUser, jdbcPass, 0);
+		final NeverlandNode thisNode = new NeverlandNode("localhost", uuid,
+				jdbcDriver, jdbcUri, jdbcUser, jdbcPass, 0);
 
 		try {
 			thisNode.setHostname(InetAddress.getLocalHost().getHostName());
@@ -76,58 +91,47 @@ public class Worker extends Thread implements Watcher {
 			log.warn("Unable to get hostname");
 		}
 
-		String thisNodeKey = "";
 		final OperatingSystemMXBean myOsBean = ManagementFactory
 				.getOperatingSystemMXBean();
 
+		tzkc = new ZooKeeperClient(Amount.of(Constants.ZK_TIMEOUT_MS,
+				Time.MILLISECONDS), zookeeper);
+		zkg = new Group(tzkc, Ids.OPEN_ACL_UNSAFE, Constants.ZK_PREFIX);
+		BS memberDataSupplier = new BS();
+		Membership groupMembership;
+
+		// verify the JDBC db is online
+		try {
+			Class.forName(jdbcDriver);
+			Connection c = DriverManager.getConnection(jdbcUri, jdbcUser,
+					jdbcPass);
+			Statement s = c.createStatement();
+			ResultSet rs = s.executeQuery("SELECT 1");
+			if (!rs.next()) {
+				throw new SQLException("Wadde hadde dudde da?");
+			}
+			rs.close();
+			s.close();
+			c.close();
+			memberDataSupplier.set(SerializableUtils.toByteArray(thisNode));
+			groupMembership = zkg.join(memberDataSupplier);
+			groupMembership.updateMemberData();
+			log.info("Successfully verified connection to " + jdbcUri);
+		} catch (Exception e) {
+			log.error("Unable to verify DB at " + jdbcUri, e);
+			return;
+		}
+
 		while (true) {
-			if (workerState == Constants.WorkerState.initializing) {
-				try {
-					Class.forName(jdbcDriver);
-					Connection c = DriverManager.getConnection(jdbcUri,
-							jdbcUser, jdbcPass);
-					Statement s = c.createStatement();
-					ResultSet rs = s.executeQuery("SELECT 1");
-					if (!rs.next()) {
-						throw new SQLException("Wadde hadde dudde da?");
-					}
-					rs.close();
-					s.close();
-					c.close();
-					log.info("Successfully verified connection to " + jdbcUri);
-					thisNodeKey = Constants.ZK_PREFIX + "/"
-							+ zkc.getSessionId();
-
-					zkc.create(thisNodeKey,
-							SerializableUtils.toByteArray(thisNode),
-							Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL);
-
-					log.info("Successfully advertised at " + thisNodeKey);
-					workerState = Constants.WorkerState.normal;
-
-				} catch (Exception e) {
-					log.warn("Unable to advertise DB at " + jdbcUri
-							+ " to ZK at " + zookeeper, e);
-				}
-
-			}
-			if (workerState == Constants.WorkerState.normal) {
-				try {
-					thisNode.setLoad(myOsBean.getSystemLoadAverage());
-					thisNode.setId(uuid);
-					zkc.setData(thisNodeKey,
-							SerializableUtils.toByteArray(thisNode), -1);
-
-				} catch (Exception e) {
-					log.warn("ZK Error", e);
-					workerState = Constants.WorkerState.initializing;
-				}
-
-			}
 			try {
+				thisNode.setLoad(myOsBean.getSystemLoadAverage());
+				thisNode.setId(uuid);
+				memberDataSupplier.set(SerializableUtils.toByteArray(thisNode));
+				groupMembership.updateMemberData();
+
 				Thread.sleep(Constants.ADVERTISE_DELAY_MS);
-			} catch (InterruptedException e) {
-				// ignore this.
+			} catch (Exception e) {
+				log.warn(e);
 			}
 
 		}
@@ -187,9 +191,9 @@ public class Worker extends Thread implements Watcher {
 			System.exit(-1);
 		}
 
-		new Worker(res.getInetAddress("zkhost").getHostAddress() + ":"
-				+ res.getInt("zkport"), res.getString("jdbcdriver"),
-				res.getString("jdbcuri"), res.getString("jdbcuser"),
-				res.getString("jdbcpass")).start();
+		new Worker(new InetSocketAddress(res.getInetAddress("zkhost")
+				.getHostAddress(), res.getInt("zkport")),
+				res.getString("jdbcdriver"), res.getString("jdbcuri"),
+				res.getString("jdbcuser"), res.getString("jdbcpass")).start();
 	}
 }

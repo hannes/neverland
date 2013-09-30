@@ -44,7 +44,6 @@ import org.apache.mina.filter.codec.ProtocolCodecFilter;
 import org.apache.mina.filter.codec.textline.TextLineCodecFactory;
 import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
 import org.apache.zookeeper.CreateMode;
-import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooDefs.Ids;
@@ -69,13 +68,16 @@ import com.martiansoftware.jsap.JSAPResult;
 import com.martiansoftware.jsap.ParseException;
 import com.martiansoftware.jsap.StringParser;
 import com.mchange.v2.ser.SerializableUtils;
+import com.twitter.common.quantity.Amount;
+import com.twitter.common.quantity.Time;
+import com.twitter.common.zookeeper.Group;
+import com.twitter.common.zookeeper.ZooKeeperClient;
 
 public class Coordinator extends Thread implements Watcher {
-	protected ZooKeeper zkc;
 
 	private static Logger log = Logger.getLogger(Coordinator.class);
 
-	private String zookeeper;
+	private InetSocketAddress zookeeper;
 	private int jdbcPort;
 
 	private Executor executor;
@@ -93,7 +95,7 @@ public class Coordinator extends Thread implements Watcher {
 		baseline, loadbalance, rewriteround, rewriterandom, rewriteload, neverland, sticky;
 	}
 
-	public Coordinator(NeverlandScenario scenario, String zooKeeper,
+	public Coordinator(NeverlandScenario scenario, InetSocketAddress zooKeeper,
 			int jdbcPort, int httpPort, long shardSize) {
 		this.zookeeper = zooKeeper;
 		this.jdbcPort = jdbcPort;
@@ -104,21 +106,17 @@ public class Coordinator extends Thread implements Watcher {
 		this.rewriter = null;
 	}
 
-	public Coordinator(NeverlandScenario scenario, String zooKeeper,
+	public Coordinator(NeverlandScenario scenario, InetSocketAddress zooKeeper,
 			int jdbcPort, int httpPort, long shardSize, Rewriter rewriter) {
 		this(scenario, zooKeeper, jdbcPort, httpPort, shardSize);
 		this.rewriter = rewriter;
 	}
 
-	private Constants.CoordinatorState coordinatorState = Constants.CoordinatorState.initializing;
+	private ZooKeeperClient tzkc;
+	private Group zkg;
 
 	@Override
 	public void run() {
-		try {
-			zkc = new ZooKeeper(zookeeper, Constants.ZK_TIMEOUT_MS, this);
-		} catch (IOException e) {
-			log.warn(e);
-		}
 		log.info("Neverland coordinator daemon started with scenario "
 				+ scenario + " and Zookeeper at " + zookeeper);
 
@@ -167,23 +165,23 @@ public class Coordinator extends Thread implements Watcher {
 		}
 		this.scheduler = new Scheduler.StickyScheduler();
 
-		while (coordinatorState == Constants.CoordinatorState.initializing) {
-			try {
-				// create tree root if not there yet
-				if (zkc.exists(Constants.ZK_PREFIX, this) == null) {
-					zkc.create(Constants.ZK_PREFIX, null, Ids.OPEN_ACL_UNSAFE,
-							CreateMode.PERSISTENT);
-					log.debug("Successfully created ZK root node at at "
-							+ Constants.ZK_PREFIX);
-				}
-			} catch (Exception e) {
-				log.warn("Zookeeper not ready... retrying in "
-						+ Constants.ADVERTISE_DELAY_MS + " ms", e);
+		tzkc = new ZooKeeperClient(Amount.of(Constants.ZK_TIMEOUT_MS,
+				Time.MILLISECONDS), zookeeper);
+		try {
+			ZooKeeper zk = tzkc.get();
+			if (zk.exists(Constants.ZK_PREFIX, false) == null) {
+				zk.create(Constants.ZK_PREFIX, null, Ids.OPEN_ACL_UNSAFE,
+						CreateMode.PERSISTENT);
 			}
-			// now wait until at least one node appeared, generate the
-			// rewriter etc.
+		} catch (Exception e2) {
+			log.warn(e2);
+		}
 
-			List<NeverlandNode> nodes = getCurrentNodes();
+		zkg = new Group(tzkc, Ids.OPEN_ACL_UNSAFE, Constants.ZK_PREFIX);
+
+		List<NeverlandNode> nodes;
+		do {
+			nodes = getCurrentNodes();
 			if (nodes.size() > 0) {
 				// now ask the first node to be alive for the table
 				// structure
@@ -195,8 +193,6 @@ public class Coordinator extends Thread implements Watcher {
 								+ this.rewriter);
 
 					}
-					coordinatorState = Constants.CoordinatorState.normal;
-
 				} catch (NeverlandException e) {
 					log.warn("Unable to initialize rewriter", e);
 				}
@@ -204,10 +200,11 @@ public class Coordinator extends Thread implements Watcher {
 
 			try {
 				Thread.sleep(Constants.ADVERTISE_DELAY_MS);
+				log.info("Waiting for more nodes...");
 			} catch (InterruptedException e) {
 				// ignore this.
 			}
-		}
+		} while (nodes.size() < 1);
 
 		// create socket handler using NIO/MINA
 		IoAcceptor acceptor = new NioSocketAcceptor();
@@ -225,17 +222,6 @@ public class Coordinator extends Thread implements Watcher {
 			log.info("JDBC server ready at port " + jdbcPort);
 		} catch (IOException e1) {
 			log.warn("Unable to open JDBC server at port " + jdbcPort, e1);
-		}
-
-		while (coordinatorState == Constants.CoordinatorState.normal) {
-			try {
-				zkc.exists(Constants.ZK_PREFIX, this);
-				Thread.sleep(Constants.POLL_DELAY_MS);
-			} catch (InterruptedException e) {
-				// ignore this.
-			} catch (KeeperException e) {
-				// TODO: go to init
-			}
 		}
 	}
 
@@ -366,9 +352,10 @@ public class Coordinator extends Thread implements Watcher {
 			}
 		}
 
-		new Coordinator(scenario, res.getInetAddress("zkhost").getHostAddress()
-				+ ":" + res.getInt("zkport"), res.getInt("jdbcport"),
-				res.getInt("httpport"), res.getLong("shardsize"), rw).start();
+		new Coordinator(scenario, new InetSocketAddress(res.getInetAddress(
+				"zkhost").getHostAddress(), res.getInt("zkport")),
+				res.getInt("jdbcport"), res.getInt("httpport"),
+				res.getLong("shardsize"), rw).start();
 	}
 
 	public static void startInternalZookeeperServer(final int port) {
@@ -528,6 +515,7 @@ public class Coordinator extends Thread implements Watcher {
 					return;
 				}
 
+				log.info("Received query #" + q.getId() + " " + q.getSql());
 				q.setSubqueries(coord.getRewriter().rewrite(q, nodes.size()));
 				Scheduler.SubquerySchedule schedule = coord.getScheduler()
 						.schedule(q, nodes);
@@ -552,23 +540,13 @@ public class Coordinator extends Thread implements Watcher {
 
 	// avoid race conditions by not allowing outsiders write access to the node
 	// list
-
-	// TODO: cache node list for some time to avoid reading ZK all the time...
 	public List<NeverlandNode> getCurrentNodes() {
 		List<NeverlandNode> nnodes = new ArrayList<NeverlandNode>();
-
 		try {
-			List<String> nodes = zkc.getChildren(Constants.ZK_PREFIX, this);
-			for (String n : nodes) {
-				byte[] nodeser = zkc.getData(Constants.ZK_PREFIX + "/" + n,
-						false, null);
-				try {
-					NeverlandNode nn = (NeverlandNode) SerializableUtils
-							.fromByteArray(nodeser);
-					nnodes.add(nn);
-				} catch (Exception e) {
-					log.warn("Failed to unserialize node", e);
-				}
+			for (String nodeid : zkg.getMemberIds()) {
+				NeverlandNode nn = (NeverlandNode) SerializableUtils
+						.fromByteArray(zkg.getMemberData(nodeid));
+				nnodes.add(nn);
 			}
 		} catch (Exception e) {
 			log.warn(e);

@@ -25,11 +25,29 @@ public abstract class Scheduler {
 			return 3600 * 1000;
 		}
 
-		public void schedule(NeverlandNode n, Subquery q) {
+		public SubquerySchedule schedule(NeverlandNode n, Subquery q) {
 			if (!containsKey(n)) {
 				put(n, new ArrayList<Subquery>());
 			}
 			get(n).add(q);
+			return this;
+		}
+
+		public SubquerySchedule reschedule(NeverlandNode oldNode, Subquery q,
+				NeverlandNode newNode) throws NeverlandException {
+			if (oldNode == null || q == null || newNode == null) {
+				throw new NeverlandException("null arguments, me no likey");
+			}
+			if (!containsKey(oldNode) || get(oldNode) == null) {
+				throw new NeverlandException(oldNode
+						+ "is not part of schedule " + toString());
+			}
+			if (!get(oldNode).contains(q)) {
+				throw new NeverlandException(q
+						+ " is not part of schedule for " + oldNode);
+			}
+			get(oldNode).remove(q);
+			return schedule(newNode, q);
 		}
 	}
 
