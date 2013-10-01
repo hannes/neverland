@@ -100,7 +100,7 @@ public class Coordinator extends Thread implements Watcher {
 		this.zookeeper = zooKeeper;
 		this.jdbcPort = jdbcPort;
 		this.httpPort = httpPort;
-		this.executor = new Executor.MultiThreadedExecutor(100, 10);
+		this.executor = new Executor.ReschedulingExecutor(100, 10);
 		this.scenario = scenario;
 		this.shardSize = shardSize;
 		this.rewriter = null;

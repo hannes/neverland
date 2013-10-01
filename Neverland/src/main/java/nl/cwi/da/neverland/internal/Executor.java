@@ -22,6 +22,8 @@ import java.util.concurrent.TimeUnit;
 
 import nl.cwi.da.neverland.internal.Scheduler.SubquerySchedule;
 
+import org.apache.commons.lang.ArrayUtils;
+import org.apache.commons.math.stat.descriptive.rank.Percentile;
 import org.apache.log4j.Logger;
 
 import com.mchange.v2.c3p0.ComboPooledDataSource;
@@ -60,11 +62,13 @@ public abstract class Executor {
 			long subqueries = 0;
 			List<Future<SubqueryResultSet>> resultSetsFutures = new ArrayList<Future<SubqueryResultSet>>();
 			List<ResultSet> resultSets = new ArrayList<ResultSet>();
-			Map<Subquery, NeverlandNode> subqueryTodo = new HashMap<Subquery, NeverlandNode>();
-
+			Map<Subquery, Long> subqueryStart = new HashMap<Subquery, Long>();
+			Percentile responseTimesPercentile = new Percentile();
+			Collection<Double> responseTimes = new ArrayList<Double>();
 			log.info("Running schedule for #" + schedule.getQuery().getId()
 					+ ", " + schedule.size() + " Subqueries");
 
+			// schedule everything
 			for (Entry<NeverlandNode, List<Subquery>> sentry : schedule
 					.entrySet()) {
 				final NeverlandNode nn = sentry.getKey();
@@ -73,76 +77,89 @@ public abstract class Executor {
 					subqueries++;
 					resultSetsFutures.add(schedule(nn, sq,
 							schedule.getTimeoutMs()));
-					subqueryTodo.put(sq, nn);
+					subqueryStart.put(sq, System.currentTimeMillis());
 				}
-
-				boolean finishedQuorum = false;
-				do {
-
-					// check percentage of result sets already delivered
-					double finishedPercent = subqueryTodo.size() / subqueries;
-					if (finishedPercent > Constants.RESCHEDULER_FINISHED_QUORUM) {
-						finishedQuorum = true;
-					}
-					if (log.isDebugEnabled()) {
-						log.debug("Reached finishing quorum of "
-								+ Constants.RESCHEDULER_FINISHED_QUORUM * 100
-								+ "% with " + subqueryTodo.size() + " of "
-								+ subqueries + "(" + finishedPercent * 100
-								+ "%, quorum finished=)" + finishedQuorum);
-					}
-
-					// check and cleanup finished subqueries
-					for (Future<SubqueryResultSet> rf : resultSetsFutures) {
-						if (rf.isDone()) {
-							try {
-								SubqueryResultSet srs = rf.get();
-								if (srs == null) {
-									throw new NeverlandException(
-											"null result set. Bah.");
-								}
-								// only add result set if we are still waiting
-								// for it
-								// if it is not on the todo list, another
-								// attempt has already
-								// delivered the result and we discard it.
-								if (subqueryTodo.containsKey(srs.sq)) {
-									resultSets.add(srs.rs);
-									subqueryTodo.remove(srs.sq);
-								}
-							} catch (Exception e) {
-								log.warn(e);
-							}
-						}
-					}
-					// everything still running as the quorum is reached will be
-					// rescheduled
-					if (finishedQuorum) {
-						for (Entry<Subquery, NeverlandNode> se : subqueryTodo
-								.entrySet()) {
-							Subquery sq = se.getKey();
-							/*
-							 * this subquery will be rescheduled, but to which
-							 * node? this depends on the scheduler, no? for now,
-							 * randomize
-							 */
-							NeverlandNode newNode = randomNodeFromSchedule(
-									schedule, Arrays.asList(se.getValue()));
-							
-							// TODO: actually reschedule, see above for how
-
-							// how do we avoid re-re-re-scheduling?
-							// FIXME
-						}
-					}
-					try {
-						Thread.sleep(Constants.RESCHEDULER_SLEEP_MS);
-					} catch (InterruptedException e) {
-						// don't care
-					}
-					// repeat until we have all enough result sets
-				} while (resultSets.size() < subqueries);
 			}
+			// now we play the waiting game
+			boolean finishedQuorum = false;
+			do {
+				// check and cleanup finished subqueries
+				for (Future<SubqueryResultSet> rf : resultSetsFutures) {
+					if (rf.isDone()) {
+						try {
+							SubqueryResultSet srs = rf.get();
+							if (srs == null) {
+								throw new NeverlandException(
+										"null result set. Bah.");
+							}
+							// only add result set if we are still waiting
+							// for it
+							// if it is not on the todo list, another
+							// attempt has already
+							// delivered the result and we discard it.
+							if (subqueryStart.containsKey(srs.sq)) {
+								resultSets.add(srs.rs);
+								responseTimes.add(subqueryStart.get(srs.sq)
+										.doubleValue());
+								subqueryStart.remove(srs.sq);
+							}
+						} catch (Exception e) {
+							log.warn(e);
+						}
+					}
+				}
+				// check percentage of result sets already delivered
+				double finishedPercent = subqueryStart.size() / subqueries;
+				if (finishedPercent > Constants.RESCHEDULER_FINISHED_QUORUM) {
+					finishedQuorum = true;
+				}
+				if (log.isDebugEnabled()) {
+					log.debug("Reached finishing quorum of "
+							+ Constants.RESCHEDULER_FINISHED_QUORUM * 100
+							+ "% with " + subqueryStart.size() + " of "
+							+ subqueries + "(" + finishedPercent * 100
+							+ "%, quorum finished=)" + finishedQuorum);
+				}
+				double responseTimeLimit = responseTimesPercentile.evaluate(
+						ArrayUtils.toPrimitive(responseTimes
+								.toArray(new Double[0])),
+						Constants.RESCHEDULER_FINISHED_QUORUM);
+				// if we have reached the response quorum we start
+				// rescheduling
+				if (finishedQuorum) {
+					for (Entry<Subquery, Long> se : subqueryStart.entrySet()) {
+						Subquery sq = se.getKey();
+						double queryRuntime = System.currentTimeMillis()
+								- se.getValue();
+						// if a query takes longer than the time limit,
+						// reschedule
+						if (queryRuntime > responseTimeLimit) {
+							NeverlandNode oldNode = schedule.getNode(sq);
+							NeverlandNode newNode = randomNodeFromSchedule(
+									schedule, Arrays.asList(oldNode));
+							if (log.isDebugEnabled()) {
+								log.debug("Rescheduling Subquery " + sq.getId()
+										+ " from " + oldNode.getHostname()
+										+ " to " + newNode.getHostname());
+							}
+							// fix the schedule for bookkeeping reasons
+							schedule.reschedule(oldNode, sq, newNode);
+							// overwrite the start time with the current
+							// time
+							resultSetsFutures.add(schedule(newNode, sq,
+									schedule.getTimeoutMs()));
+							subqueryStart.put(sq, System.currentTimeMillis());
+						}
+					}
+				}
+				try {
+					Thread.sleep(Constants.RESCHEDULER_SLEEP_MS);
+				} catch (InterruptedException e) {
+					// don't care
+				}
+				// repeat until we have all enough result sets
+			} while (resultSets.size() < subqueries);
+
 			if (resultSets.size() != subqueries) {
 				throw new NeverlandException("Not enough result sets, need"
 						+ subqueries + ", have " + resultSets.size());

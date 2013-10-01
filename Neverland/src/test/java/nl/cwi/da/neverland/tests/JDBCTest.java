@@ -76,7 +76,7 @@ public class JDBCTest {
 		while (true) {
 			for (Entry<String, String> e : SSBM.QUERIES.entrySet()) {
 				ResultSet rs = s.executeQuery(e.getValue());
-				// ResultCombiner.printResultSet(rs, System.out);
+				ResultCombiner.printResultSet(rs, System.out);
 			}
 			Thread.sleep(100);
 

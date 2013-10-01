@@ -3,6 +3,7 @@ package nl.cwi.da.neverland.internal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 public abstract class Scheduler {
@@ -48,6 +49,20 @@ public abstract class Scheduler {
 			}
 			get(oldNode).remove(q);
 			return schedule(newNode, q);
+		}
+
+		public NeverlandNode getNode(Subquery sq) {
+			if (sq == null) {
+				return null;
+			}
+			for (Map.Entry<NeverlandNode, List<Subquery>> e : entrySet()) {
+				for (Subquery asq : e.getValue()) {
+					if (sq.equals(asq)) {
+						return e.getKey();
+					}
+				}
+			}
+			return null;
 		}
 	}
 
