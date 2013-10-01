@@ -23,7 +23,7 @@ public class Constants {
 	public static final long DEFAULT_SHARD_SIZE = 1000000;
 	public static final int QUERYLOG_SIZE = 10;
 	public static final int ZK_TIMEOUT_MS = 10000;
-	public static final double RESCHEDULER_FINISHED_QUORUM = 0.95;
+	public static final double RESCHEDULER_FINISHED_QUORUM = 0.90;
 	public static final long RESCHEDULER_SLEEP_MS = 100;
 
 }

@@ -46,8 +46,8 @@ public abstract class Executor {
 
 		private NeverlandNode randomNodeFromSchedule(SubquerySchedule schedule,
 				Collection<NeverlandNode> ignoreNodes) {
-			NeverlandNode[] nodesArr = (NeverlandNode[]) schedule.keySet()
-					.toArray();
+			NeverlandNode[] nodesArr = schedule.keySet().toArray(
+					new NeverlandNode[0]);
 			NeverlandNode nn = null;
 			do {
 				nn = nodesArr[rand.nextInt(nodesArr.length)];
@@ -63,7 +63,6 @@ public abstract class Executor {
 			List<Future<SubqueryResultSet>> resultSetsFutures = new ArrayList<Future<SubqueryResultSet>>();
 			List<ResultSet> resultSets = new ArrayList<ResultSet>();
 			Map<Subquery, Long> subqueryStart = new HashMap<Subquery, Long>();
-			Percentile responseTimesPercentile = new Percentile();
 			Collection<Double> responseTimes = new ArrayList<Double>();
 			log.info("Running schedule for #" + schedule.getQuery().getId()
 					+ ", " + schedule.size() + " Subqueries");
@@ -99,8 +98,8 @@ public abstract class Executor {
 							// delivered the result and we discard it.
 							if (subqueryStart.containsKey(srs.sq)) {
 								resultSets.add(srs.rs);
-								responseTimes.add(subqueryStart.get(srs.sq)
-										.doubleValue());
+								responseTimes.add(System.currentTimeMillis()
+										- subqueryStart.get(srs.sq) * 1.0);
 								subqueryStart.remove(srs.sq);
 							}
 						} catch (Exception e) {
@@ -109,21 +108,21 @@ public abstract class Executor {
 					}
 				}
 				// check percentage of result sets already delivered
-				double finishedPercent = subqueryStart.size() / subqueries;
+				double finishedPercent = (subqueries - subqueryStart.size())
+						* 1.0 / subqueries;
 				if (finishedPercent > Constants.RESCHEDULER_FINISHED_QUORUM) {
 					finishedQuorum = true;
 				}
-				if (log.isDebugEnabled()) {
-					log.debug("Reached finishing quorum of "
-							+ Constants.RESCHEDULER_FINISHED_QUORUM * 100
-							+ "% with " + subqueryStart.size() + " of "
-							+ subqueries + "(" + finishedPercent * 100
-							+ "%, quorum finished=)" + finishedQuorum);
-				}
-				double responseTimeLimit = responseTimesPercentile.evaluate(
-						ArrayUtils.toPrimitive(responseTimes
-								.toArray(new Double[0])),
-						Constants.RESCHEDULER_FINISHED_QUORUM);
+
+				double responseTimeLimit = new Percentile().evaluate(ArrayUtils
+						.toPrimitive(responseTimes.toArray(new Double[0])),
+						Constants.RESCHEDULER_FINISHED_QUORUM * 100);
+
+				log.debug("Finishing quorum: " + subqueryStart.size() + " of "
+						+ subqueries + " running (" + finishedPercent * 100
+						+ "%, quorum reached=" + finishedQuorum
+						+ ", response time limit=" + responseTimeLimit + ")");
+
 				// if we have reached the response quorum we start
 				// rescheduling
 				if (finishedQuorum) {
@@ -137,11 +136,10 @@ public abstract class Executor {
 							NeverlandNode oldNode = schedule.getNode(sq);
 							NeverlandNode newNode = randomNodeFromSchedule(
 									schedule, Arrays.asList(oldNode));
-							if (log.isDebugEnabled()) {
-								log.debug("Rescheduling Subquery " + sq.getId()
-										+ " from " + oldNode.getHostname()
-										+ " to " + newNode.getHostname());
-							}
+							log.debug("Rescheduling Subquery " + sq.getId()
+									+ " from " + oldNode.getHostname() + " to "
+									+ newNode.getHostname());
+
 							// fix the schedule for bookkeeping reasons
 							schedule.reschedule(oldNode, sq, newNode);
 							// overwrite the start time with the current
@@ -160,6 +158,7 @@ public abstract class Executor {
 				// repeat until we have all enough result sets
 			} while (resultSets.size() < subqueries);
 
+			// if we get and do not have enough result sets, very bad!
 			if (resultSets.size() != subqueries) {
 				throw new NeverlandException("Not enough result sets, need"
 						+ subqueries + ", have " + resultSets.size());
