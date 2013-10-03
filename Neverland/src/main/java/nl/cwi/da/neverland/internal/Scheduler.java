@@ -64,6 +64,14 @@ public abstract class Scheduler {
 			}
 			return null;
 		}
+
+		public long numSubqueries() {
+			long sq = 0;
+			for (Map.Entry<NeverlandNode, List<Subquery>> e : entrySet()) {
+				sq += e.getValue().size();
+			}
+			return sq;
+		}
 	}
 
 	public abstract SubquerySchedule schedule(Query q, List<NeverlandNode> nodes)
@@ -133,7 +141,7 @@ public abstract class Scheduler {
 
 	public static class LoadBalancingScheduler extends Scheduler {
 
-		private Random rnd = new Random();
+		private Random rnd = new Random(System.currentTimeMillis());
 
 		@Override
 		public SubquerySchedule schedule(Query q, List<NeverlandNode> nodes)
@@ -156,7 +164,7 @@ public abstract class Scheduler {
 
 	public static class RandomScheduler extends Scheduler {
 
-		private Random rnd = new Random();
+		private Random rnd = new Random(System.currentTimeMillis());
 
 		@Override
 		public SubquerySchedule schedule(Query q, List<NeverlandNode> nodes)

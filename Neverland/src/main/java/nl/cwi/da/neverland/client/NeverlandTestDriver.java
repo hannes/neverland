@@ -1,5 +1,6 @@
 package nl.cwi.da.neverland.client;
 
+import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -16,6 +17,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import nl.cwi.da.neverland.csv.CSVEntry;
+import nl.cwi.da.neverland.csv.TestResults;
 import nl.cwi.da.neverland.internal.Constants;
 import nl.cwi.da.neverland.internal.SSBM;
 import nl.cwi.da.neverland.internal.StatisticalDescription;
@@ -34,6 +37,15 @@ public class NeverlandTestDriver {
 		private double qps;
 	}
 
+	public static class QueryResult extends TestResults {
+		@CSVEntry
+		public Integer queryset;
+		@CSVEntry
+		public String query;
+		@CSVEntry
+		public Double time;
+	}
+
 	public static void main(String[] args) throws JSAPException {
 
 		JSAP jsap = new JSAP();
@@ -42,6 +54,11 @@ public class NeverlandTestDriver {
 				.setLongFlag("host").setStringParser(JSAP.STRING_PARSER)
 				.setRequired(false).setDefault("localhost")
 				.setHelp("Hostname of the Neverland Coordinator"));
+
+		jsap.registerParameter(new FlaggedOption("csv").setShortFlag('c')
+				.setLongFlag("csv").setStringParser(JSAP.STRING_PARSER)
+				.setRequired(false).setDefault("/dev/null")
+				.setHelp("CSV File to write results to"));
 
 		jsap.registerParameter(new FlaggedOption("port").setShortFlag('p')
 				.setLongFlag("port").setStringParser(JSAP.INTEGER_PARSER)
@@ -95,6 +112,9 @@ public class NeverlandTestDriver {
 		final int runs = res.getInt("runs");
 		final int threads = res.getInt("threads");
 
+		final File csvFile = new File(res.getString("csv"));
+		new QueryResult().writeHeader(csvFile);
+
 		System.out.println(NeverlandTestDriver.class.getSimpleName() + " "
 				+ threads + " thread(s)");
 
@@ -141,6 +161,12 @@ public class NeverlandTestDriver {
 									double time = executeQuery(e.getValue(), s);
 									timings.get(e.getKey()).addValue(time);
 									System.out.println(e.getKey() + ": " + time);
+
+									QueryResult qr = new QueryResult();
+									qr.query = e.getKey();
+									qr.queryset = i;
+									qr.time = time;
+									qr.writeToFile(csvFile);
 								}
 							}
 

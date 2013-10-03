@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -65,7 +66,7 @@ public abstract class Executor {
 			Map<Subquery, Long> subqueryStart = new HashMap<Subquery, Long>();
 			Collection<Double> responseTimes = new ArrayList<Double>();
 			log.info("Running schedule for #" + schedule.getQuery().getId()
-					+ ", " + schedule.size() + " Subqueries");
+					+ ", " + schedule.numSubqueries() + " Subqueries scheduled");
 
 			// schedule everything
 			for (Entry<NeverlandNode, List<Subquery>> sentry : schedule
@@ -79,12 +80,18 @@ public abstract class Executor {
 					subqueryStart.put(sq, System.currentTimeMillis());
 				}
 			}
+			long round = 0;
 			// now we play the waiting game
 			boolean finishedQuorum = false;
 			do {
 				// check and cleanup finished subqueries
-				for (Future<SubqueryResultSet> rf : resultSetsFutures) {
+
+				Iterator<Future<SubqueryResultSet>> futureIterator = resultSetsFutures
+						.iterator();
+				while (futureIterator.hasNext()) {
+					Future<SubqueryResultSet> rf = futureIterator.next();
 					if (rf.isDone()) {
+						futureIterator.remove();
 						try {
 							SubqueryResultSet srs = rf.get();
 							if (srs == null) {
@@ -107,6 +114,7 @@ public abstract class Executor {
 						}
 					}
 				}
+
 				// check percentage of result sets already delivered
 				double finishedPercent = (subqueries - subqueryStart.size())
 						* 1.0 / subqueries;
@@ -118,10 +126,12 @@ public abstract class Executor {
 						.toPrimitive(responseTimes.toArray(new Double[0])),
 						Constants.RESCHEDULER_FINISHED_QUORUM * 100);
 
-				log.debug("Finishing quorum: " + subqueryStart.size() + " of "
-						+ subqueries + " running (" + finishedPercent * 100
-						+ "%, quorum reached=" + finishedQuorum
-						+ ", response time limit=" + responseTimeLimit + ")");
+				if (log.isDebugEnabled())
+					log.debug("Finishing quorum: " + subqueryStart.size()
+							+ " of " + subqueries + " running ("
+							+ finishedPercent * 100 + "%, quorum reached="
+							+ finishedQuorum + ", response time limit="
+							+ responseTimeLimit + ")");
 
 				// if we have reached the response quorum we start
 				// rescheduling
@@ -136,8 +146,9 @@ public abstract class Executor {
 							NeverlandNode oldNode = schedule.getNode(sq);
 							NeverlandNode newNode = randomNodeFromSchedule(
 									schedule, Arrays.asList(oldNode));
-							log.debug("Rescheduling Subquery " + sq.getId()
-									+ " from " + oldNode.getHostname() + " to "
+							log.info(round + " Rescheduling Subquery "
+									+ sq.getId() + " from "
+									+ oldNode.getHostname() + " to "
 									+ newNode.getHostname());
 
 							// fix the schedule for bookkeeping reasons
@@ -155,6 +166,7 @@ public abstract class Executor {
 				} catch (InterruptedException e) {
 					// don't care
 				}
+				round++;
 				// repeat until we have all enough result sets
 			} while (resultSets.size() < subqueries);
 
@@ -204,7 +216,7 @@ public abstract class Executor {
 				final Subquery sq, long timeoutMs) {
 			synchronized (this) {
 				if (!dataSources.containsKey(nn.getId())) {
-					log.info("Opening new connection pool to "
+					log.debug("Opening new connection pool to "
 							+ nn.getJdbcUrl());
 					ComboPooledDataSource cpds = new ComboPooledDataSource();
 					try {
@@ -222,9 +234,9 @@ public abstract class Executor {
 					cpds.setMinPoolSize(connectionsPerNode / 2);
 					cpds.setAcquireIncrement(1);
 					cpds.setMaxPoolSize(connectionsPerNode);
-					// TODO: investigate here...
-					cpds.setNumHelperThreads(10);
 
+					// TODO: investigate here...
+					cpds.setNumHelperThreads(connectionsPerNode);
 					dataSources.put(nn.getId(), cpds);
 				}
 			}
@@ -298,7 +310,7 @@ public abstract class Executor {
 			List<ResultSet> resultSets = new ArrayList<ResultSet>();
 
 			log.info("Running schedule for #" + schedule.getQuery().getId()
-					+ ", " + schedule.size() + " Subqueries");
+					+ ", " + schedule.numSubqueries() + " Subqueries scheduled");
 			long queryStart = System.currentTimeMillis();
 
 			for (Entry<NeverlandNode, List<Subquery>> sentry : schedule

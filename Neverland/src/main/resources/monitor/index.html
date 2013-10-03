@@ -65,7 +65,7 @@ body {
 		<tbody>
 			<tr><th colspan="4" class="sql-query">{{sqlQuery}}</th></tr>
 			{{#subqueries}}
-				<tr><th>{{factTable}}[{{sliceMin}}:{{sliceMax}}]</th><td>{{assignedNode.hostname}} ({{assignedNode.sessionId}})</td><td>{{timeTaken}}s</td><td>{{resultSetSize}}</td></tr>
+				<tr><th>{{factTable}}[{{sliceMin}}:{{sliceMax}}]</th><td>{{assignedNode.hostname}} ({{assignedNode.sessionId}})</td><td>{{connectTimeSecs}}s</td><td>{{timeTaken}}s</td><td>{{resultSetSize}}</td></tr>
 			{{/subqueries}}
 		</tbody>
 	{{/queries}}
