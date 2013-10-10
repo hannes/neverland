@@ -1,0 +1,52 @@
+#! /usr/bin/stap --skip-badvars
+
+global traceon, filenames
+
+probe begin {
+ 	printf("timestamp\tinode\tfilename\tmode\toffset\tsize\n")
+}
+
+# intercept open() syscall at the right time to learn inode nr for our files
+# http://lxr.free-electrons.com/source/fs/open.c?v=3.6
+
+probe kernel.function("finish_open").return {
+	inode = $dentry->d_inode->i_ino
+	if (@defined($file) && !([inode] in traceon)) {
+		parent = @cast($file, "file")->f_path->dentry->d_parent;
+		fname = __file_filename($file)
+ 		path = reverse_path_walk(parent) ."/".fname
+		 if (path =~ "^(.*/pgdata-sf100.*)$" ) {
+			# printf("Tracing %d %s\n",inode,path)
+			traceon[inode] = 1
+			filenames[inode] = path
+		}
+	}
+}
+
+
+probe kernel.function("vfs_rename") {
+	inode = $old_dentry->d_inode->i_ino
+	if (inode && [inode] in traceon) {
+		name = d_name($new_dentry)
+		path = reverse_path_walk($new_dentry->d_parent) ."/".name
+		filenames[inode] = path
+		printf("%d\t%d\t%s\trename\t%d\t%d\n",gettimeofday_us(),inode,path,0,0)
+	}
+}
+
+# bio doc: http://www.mjmwired.net/kernel/Documentation/block/biodoc.txt
+# kernel source: http://lxr.free-electrons.com/source/fs/mpage.c?v=3.9#L74
+
+probe kernel.function("submit_bio") {
+	inode =__bio_ino($bio)
+	if (inode && [inode] in traceon) {
+   		page_index = $bio->bi_io_vec->bv_page->index
+		if ($rw == 0) {
+			mode = "mmapread"
+		} else {
+			mode = "mmapwrite"
+		}
+		printf("%d\t%d\t%s\t%s\t%d\t%d\n",gettimeofday_us(),inode,filenames[inode],mode,page_index,$bio->bi_size/4096)
+	}
+}
+
